@@ -1,7 +1,7 @@
 from langgraph.graph import StateGraph, END
-from typing import TypedDict
+from typing import TypedDict, Annotated
+import operator
 
-# Import all agents
 from agents.retriever_agent import retrieve
 from agents.summarizer_agent import summarize
 from agents.critic_agent import critic
@@ -29,8 +29,8 @@ class AgentState(TypedDict):
     flaws: str
     comparison: str
     qa_answer: str
-    ppt_outline: str          # New
-    application: str          # New
+    ppt_outline: str
+    application: str
     mode: str
     final_output: str
     ppt_file: str
@@ -60,7 +60,7 @@ workflow.add_node("context", add_context)
 workflow.add_node("qa", answer_general_question)
 workflow.add_node("personalize", personalize)
 
-# NEW NODES
+# New agents
 workflow.add_node("ppt", generate_ppt_agent)
 workflow.add_node("application", generate_application)
 
@@ -74,10 +74,9 @@ workflow.add_edge("flaw_detection", "context")
 workflow.add_edge("context", "personalize")
 workflow.add_edge("qa", "personalize")
 
-# NEW EDGES - after personalization
+# FIXED: Run ppt and application SEQUENTIALLY instead of in parallel
 workflow.add_edge("personalize", "ppt")
-workflow.add_edge("personalize", "application")
-workflow.add_edge("ppt", END)
+workflow.add_edge("ppt", "application")      # ← sequential
 workflow.add_edge("application", END)
 
 paper_graph = workflow.compile()
