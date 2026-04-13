@@ -1,40 +1,54 @@
 from pptx import Presentation
-from pptx.util import Inches, Pt
+from pptx.util import Inches
 from knowledge.schema import PaperKnowledge
-import os
+from pathlib import Path
+from datetime import datetime
 
-def generate_ppt(paper: PaperKnowledge, summary: str, flaws: str, comparison: str, filename: str = "paper_presentation.pptx"):
-    prs = Presentation()
+def generate_ppt(paper: PaperKnowledge, summary: str, flaws: str, comparison: str, user_id: int = None) -> str:
+    """Generate professional PPT and save it correctly"""
     
-    # Title slide
+    # Create user-specific folder if user_id is provided
+    base_dir = Path("user_data")
+    if user_id:
+        ppt_dir = base_dir / str(user_id) / "ppts"
+    else:
+        ppt_dir = base_dir / "ppts"
+    
+    ppt_dir.mkdir(parents=True, exist_ok=True)
+
+    # Proper filename as string
+    safe_title = paper.title[:40].replace(" ", "_").replace("/", "_")
+    filename = f"{safe_title}_{datetime.now().strftime('%Y%m%d_%H%M')}.pptx"
+    filepath = ppt_dir / filename
+
+    prs = Presentation()
+
+    # Title Slide
     slide = prs.slides.add_slide(prs.slide_layouts[0])
     slide.shapes.title.text = paper.title
-    slide.placeholders[1].text = ", ".join(paper.authors[:3])
-    
-    # Summary slide
+    if paper.authors:
+        slide.placeholders[1].text = ", ".join(paper.authors[:5])
+
+    # Summary Slide
     slide = prs.slides.add_slide(prs.slide_layouts[1])
-    slide.shapes.title.text = "Key Summary"
+    slide.shapes.title.text = "Summary"
     tf = slide.placeholders[1].text_frame
-    tf.text = summary[:800]
-    
-    # Flaws slide
-    slide = prs.slides.add_slide(prs.slide_layouts[1])
-    slide.shapes.title.text = "Methodology Flaws & Limitations"
-    tf = slide.placeholders[1].text_frame
-    tf.text = flaws
-    
-    # Comparison slide
-    slide = prs.slides.add_slide(prs.slide_layouts[1])
-    slide.shapes.title.text = "Comparison with Similar Papers"
-    tf = slide.placeholders[1].text_frame
-    tf.text = comparison[:1000]
-    
-    # TL;DR slide
-    slide = prs.slides.add_slide(prs.slide_layouts[1])
-    slide.shapes.title.text = "TL;DR"
-    tf = slide.placeholders[1].text_frame
-    tf.text = summary.split("\n")[0]
-    
-    prs.save(filename)
-    print(f"✅ PPT saved: {filename}")
-    return filename
+    tf.text = summary[:800] if summary else "Summary not available"
+
+    # Insights / Key Findings
+    if flaws:
+        slide = prs.slides.add_slide(prs.slide_layouts[1])
+        slide.shapes.title.text = "Flaws & Limitations"
+        tf = slide.placeholders[1].text_frame
+        tf.text = flaws[:700]
+
+    # Comparison
+    if comparison:
+        slide = prs.slides.add_slide(prs.slide_layouts[1])
+        slide.shapes.title.text = "Comparison with Related Work"
+        tf = slide.placeholders[1].text_frame
+        tf.text = comparison[:700]
+
+    prs.save(str(filepath))   # Ensure it's a string path
+    print(f"✅ PPT saved: {filepath}")
+    return str(filepath)

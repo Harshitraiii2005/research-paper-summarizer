@@ -1,31 +1,33 @@
-from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
-from config import LLM_MODEL
+from config import LLM_MODEL, GROQ_API_KEY
 
-llm = ChatOpenAI(model=LLM_MODEL, temperature=0.3)
+llm = ChatGroq(model=LLM_MODEL, temperature=0.3, groq_api_key=GROQ_API_KEY)
 
 def summarize(state):
     context = "\n\n".join([c["text"] for c in state["chunks"]])
     custom = state["router_decision"].get("custom_instructions", "")
     
     prompt = ChatPromptTemplate.from_template(
-        """You are the BEST research paper summarizer.
+        """You are the world's best research paper summarizer.
+Write a clear, accurate, and professional summary.
 
-Paper: {title}
+Paper Title: {title}
 
 Context:
 {context}
 
-User wants: {custom}
+User Instructions: {custom}
 
-Create an outstanding structured summary with:
-• Key Contributions
-• Methodology Overview
-• Main Results
-• Limitations (brief)
+Structure your summary strictly with these sections:
+• **Key Contributions** (What is new?)
+• **Methodology Overview** (High-level, clear)
+• **Main Results** (Most important findings)
+• **Limitations** (Be honest)
 
-Make it clear, insightful, and professional."""
+Be concise, factual, and insightful. Never hallucinate."""
     )
+    
     chain = prompt | llm
     state["summary"] = chain.invoke({
         "title": state["paper"].title,

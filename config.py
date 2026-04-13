@@ -3,16 +3,24 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+# ====================== API KEYS ======================
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")   # Keep for future use if needed
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# Use a much cheaper model or switch to Groq (free tier available)
-LLM_MODEL = "gpt-4o-mini"          # still cheap, but you hit quota
+if not GROQ_API_KEY:
+    raise ValueError("❌ GROQ_API_KEY is missing! Please add it to your .env file.")
 
-# Temporary workaround: Use Groq (very fast + generous free tier)
-# LLM_MODEL = "llama3-70b-8192"     # Uncomment if you add Groq key
+# ====================== MODELS ======================
+LLM_MODEL = "llama-3.3-70b-versatile"   # Excellent free model on Groq
 
 EMBEDDING_MODEL = "allenai/scibert_scivocab_uncased"
+
+# ====================== OTHER SETTINGS ======================
 GROBID_URL = os.getenv("GROBID_URL", "http://localhost:8070")
 DB_PATH = "paper_agent.db"
 
-print("✅ Config loaded")
+# ====================== CONFIG CONFIRMATION ======================
+print("✅ Config loaded successfully")
+print(f"   LLM Model      : {LLM_MODEL} (Groq)")
+print(f"   Embedding Model: {EMBEDDING_MODEL}")
+print(f"   GROBID URL     : {GROBID_URL}")

@@ -1,29 +1,32 @@
-from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
-from config import LLM_MODEL
+from config import LLM_MODEL, GROQ_API_KEY
 
-llm = ChatOpenAI(model=LLM_MODEL, temperature=0.2)
+llm = ChatGroq(model=LLM_MODEL, temperature=0.2, groq_api_key=GROQ_API_KEY)
 
 def generate_insights(state):
     context = "\n\n".join([c["text"][:500] for c in state["chunks"][:15]])
+    
     prompt = ChatPromptTemplate.from_template(
-        """You are the BEST research paper insight generator.
+        """You are an elite research insight generator.
 
-Paper: {title}
+Paper Title: {title}
 
 Context:
 {context}
 
-Provide deep, high-value insights:
-• Core novelty and contribution
-• Why this paper matters (impact)
-• Strengths of the approach
-• Potential future research directions
-• Real-world applications
-• How it advances the field
+Provide deep, high-value academic insights. Be critical and insightful.
+Cover:
+• Core novelty and scientific contribution
+• Why this paper is important (real impact)
+• Major strengths of the work
+• Weaknesses or gaps
+• Promising future research directions
+• Real-world applications and implications
 
-Be critical, insightful, and professional."""
+Use professional academic tone. Be specific and thoughtful."""
     )
+    
     chain = prompt | llm
     state["insights"] = chain.invoke({
         "title": state["paper"].title,

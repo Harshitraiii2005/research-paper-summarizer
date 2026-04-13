@@ -1,32 +1,30 @@
-from langchain_openai import ChatOpenAI
+from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
-from config import LLM_MODEL
+from config import LLM_MODEL, GROQ_API_KEY
 
-llm = ChatOpenAI(model=LLM_MODEL, temperature=0.1)
+llm = ChatGroq(model=LLM_MODEL, temperature=0.1, groq_api_key=GROQ_API_KEY)
 
 router_prompt = ChatPromptTemplate.from_template(
-    """You are the smartest router for the BEST research paper AI assistant.
+    """You are the smartest routing agent for a research paper intelligence system.
 
 User request: {user_input}
 
-Decide exactly what the user wants. Return ONLY valid JSON with these keys:
+Return **ONLY** valid JSON with these exact keys:
 
 {{
   "mode": "beginner" | "researcher" | "interview",
-  "tasks": ["summarize", "insights", "flaw_detection", "comparison", "ppt", "qa", "explain_like_10", "interview_qa", "custom"],
-  "custom_instructions": "any extra detail the user wants"
+  "tasks": ["summarize", "insights", "flaw_detection", "comparison", "ppt", "qa", "explain_like_10", "interview_qa", "application", "custom"],
+  "custom_instructions": "any specific user request"
 }}
 
 Rules:
-- Always include "summarize" + "insights" unless user says otherwise.
-- Use "qa" for any general question about the paper.
-- Use "insights" for deep analysis, novelty, impact, future work.
-- Use "ppt" only if user explicitly wants slides.
-- Be precise. You can combine multiple tasks.
+- Always include "summarize" and "insights" unless user explicitly asks for something else.
+- Use "ppt" when user wants a PowerPoint presentation or slides.
+- Use "application" when user wants practical, real-world recommendations for clinicians, pharmacists, researchers, or patients.
+- Use "qa" for any direct question about the paper.
+- Be precise and intelligent.
 
-Example:
-{{"mode": "researcher", "tasks": ["summarize", "insights", "flaw_detection"], "custom_instructions": "focus on limitations and real-world impact"}}
-"""
+Return nothing except the JSON object."""
 )
 
 def route_user_instruction(user_input: str) -> dict:
@@ -35,9 +33,10 @@ def route_user_instruction(user_input: str) -> dict:
     try:
         import json
         decision = json.loads(response.content)
-        # Ensure minimum quality
-        if "summarize" not in decision["tasks"] and "insights" not in decision["tasks"] and "qa" not in decision["tasks"]:
-            decision["tasks"].insert(0, "summarize")
         return decision
     except:
-        return {"mode": "researcher", "tasks": ["summarize", "insights"], "custom_instructions": ""}
+        return {
+            "mode": "researcher",
+            "tasks": ["summarize", "insights", "application"],
+            "custom_instructions": ""
+        }
