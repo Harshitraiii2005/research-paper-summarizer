@@ -1,2 +1,3 @@
 first this -> docker run --rm -p 8070:8070 -t grobid/grobid:0.8.0
-then streamlit run
+redis-server --port 6380
+uvicorn main_fastapi:app --reload --port 8001

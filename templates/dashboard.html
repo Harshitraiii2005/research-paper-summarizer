@@ -1,0 +1,336 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex flex-col h-screen w-screen">
+    <!-- Top Navigation Bar -->
+    <nav class="glass-effect-strong border-b border-gray-700/30 px-6 py-4 flex items-center justify-between flex-shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-lg gradient-primary flex items-center justify-center">
+                <i class="fas fa-brain text-white"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-xl gradient-text">PaperIntel</h1>
+                <p class="text-xs text-gray-400">AI Research Paper Assistant</p>
+            </div>
+        </div>
+        
+        <div class="flex items-center gap-4">
+            <div class="flex items-center gap-2 px-3 py-2 rounded-lg glass-effect">
+                <i class="fas fa-user-circle text-cyan-400"></i>
+                <span class="text-sm font-medium">{{ user['username'] }}</span>
+            </div>
+            <button 
+                onclick="handleLogout()"
+                class="btn btn-secondary px-4 py-2"
+            >
+                <i class="fas fa-sign-out-alt mr-2"></i>Logout
+            </button>
+        </div>
+    </nav>
+    
+    <!-- Main Content -->
+    <div class="flex-1 overflow-hidden flex">
+        <!-- Left Panel: Upload Section -->
+        <div class="flex-1 overflow-y-auto p-8 border-r border-gray-700/30">
+            <div class="max-w-2xl">
+                <!-- Header -->
+                <div class="mb-8">
+                    <h2 class="text-3xl font-bold mb-2">Welcome back! 👋</h2>
+                    <p class="text-gray-400">Upload a research paper or load one from your history</p>
+                </div>
+
+                <!-- Upload Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                    <!-- Upload PDF Card -->
+                    <div 
+                        class="card rounded-2xl p-8 border-2 border-dashed border-gray-700/50 hover:border-cyan-500/50 cursor-pointer transition-all hover:bg-opacity-100"
+                        onclick="document.getElementById('pdf-input').click()"
+                    >
+                        <div class="text-center">
+                            <div class="w-16 h-16 rounded-full gradient-primary flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-file-pdf text-white text-2xl"></i>
+                            </div>
+                            <h3 class="font-semibold text-lg mb-1">Upload PDF</h3>
+                            <p class="text-sm text-gray-400">Drag & drop or click to browse</p>
+                            <p class="text-xs text-gray-500 mt-2">Max 50MB, PDF format only</p>
+                        </div>
+                        <input type="file" id="pdf-input" accept=".pdf" class="hidden" onchange="handlePDFUpload(event)">
+                    </div>
+
+                    <!-- ArXiv Download Card -->
+                    <div class="card rounded-2xl p-8">
+                        <div class="mb-4">
+                            <div class="w-16 h-16 rounded-full gradient-primary flex items-center justify-center mb-4">
+                                <i class="fas fa-download text-white text-2xl"></i>
+                            </div>
+                            <h3 class="font-semibold text-lg mb-1">From arXiv</h3>
+                            <p class="text-sm text-gray-400">Enter the arXiv URL</p>
+                        </div>
+                        <div class="space-y-2">
+                            <input 
+                                type="text" 
+                                id="arxiv-input"
+                                placeholder="arxiv.org/abs/2403.xxxxx"
+                                class="w-full px-3 py-2 text-sm"
+                            >
+                            <button 
+                                onclick="handleArxivDownload()"
+                                class="btn btn-primary w-full py-2 text-sm"
+                            >
+                                <i class="fas fa-download mr-2"></i>Download Paper
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upload Status -->
+                <div id="upload-status" class="hidden mb-8"></div>
+
+                <!-- Process Flow -->
+                <div class="card rounded-2xl p-6 border-l-4 border-cyan-500/50">
+                    <h3 class="font-semibold mb-4 flex items-center gap-2">
+                        <i class="fas fa-bolt text-cyan-400"></i>What happens next?
+                    </h3>
+                    <div class="space-y-3 text-sm text-gray-300">
+                        <div class="flex gap-3">
+                            <div class="w-6 h-6 rounded-full gradient-primary flex items-center justify-center flex-shrink-0 text-xs font-bold text-white">1</div>
+                            <div>
+                                <p class="font-medium">PDF Processing</p>
+                                <p class="text-gray-500">GROBID extracts text and structure</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-3">
+                            <div class="w-6 h-6 rounded-full gradient-primary flex items-center justify-center flex-shrink-0 text-xs font-bold text-white">2</div>
+                            <div>
+                                <p class="font-medium">AI Analysis</p>
+                                <p class="text-gray-500">Groq AI generates insights & vectors</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-3">
+                            <div class="w-6 h-6 rounded-full gradient-primary flex items-center justify-center flex-shrink-0 text-xs font-bold text-white">3</div>
+                            <div>
+                                <p class="font-medium">Storage</p>
+                                <p class="text-gray-500">Cached in S3 for instant queries</p>
+                            </div>
+                        </div>
+                        <div class="flex gap-3">
+                            <div class="w-6 h-6 rounded-full gradient-primary flex items-center justify-center flex-shrink-0 text-xs font-bold text-white">4</div>
+                            <div>
+                                <p class="font-medium">Ready to Query</p>
+                                <p class="text-gray-500">Ask anything about the paper</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Paper History -->
+        <div class="w-96 glass-effect-strong border-l border-gray-700/30 overflow-hidden flex flex-col flex-shrink-0">
+            <!-- Header -->
+            <div class="p-6 border-b border-gray-700/20 flex-shrink-0">
+                <h3 class="text-lg font-bold gradient-text mb-1 flex items-center gap-2">
+                    <i class="fas fa-history"></i>10-Day History
+                </h3>
+                <p class="text-xs text-gray-500">Papers stored temporarily</p>
+            </div>
+
+            <!-- Papers List -->
+            <div id="papers-list" class="flex-1 overflow-y-auto p-4">
+                <div class="flex flex-col items-center justify-center h-full py-12">
+                    <i class="fas fa-hourglass-half text-gray-600 text-3xl mb-2"></i>
+                    <p class="text-gray-500 text-sm">Loading papers...</p>
+                </div>
+            </div>
+
+            <!-- Stats Footer -->
+            <div class="border-t border-gray-700/20 p-4 flex-shrink-0">
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="glass-effect rounded-lg p-3 text-center">
+                        <p class="text-2xl font-bold gradient-text" id="paper-count">0</p>
+                        <p class="text-xs text-gray-500 mt-1">Total Papers</p>
+                    </div>
+                    <div class="glass-effect rounded-lg p-3 text-center">
+                        <p class="text-2xl font-bold text-cyan-400" id="storage-used">-</p>
+                        <p class="text-xs text-gray-500 mt-1">Storage Used</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+#papers-list {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 212, 255, 0.3) rgba(30, 35, 70, 0.2);
+}
+
+#papers-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+#papers-list::-webkit-scrollbar-track {
+    background: rgba(30, 35, 70, 0.2);
+}
+
+#papers-list::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, #00d4ff, #0099cc);
+    border-radius: 10px;
+}
+
+.paper-item {
+    animation: slideInRight 0.3s ease;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', loadPapers);
+
+async function loadPapers() {
+    try {
+        const response = await fetch('/api/papers');
+        const papers = await response.json();
+        
+        const papersList = document.getElementById('papers-list');
+        
+        if (papers.length === 0) {
+            papersList.innerHTML = `
+                <div class="flex flex-col items-center justify-center h-full py-12">
+                    <i class="fas fa-inbox text-gray-600 text-3xl mb-2"></i>
+                    <p class="text-gray-500 text-sm">No papers yet</p>
+                    <p class="text-gray-600 text-xs mt-1">Upload your first paper to start</p>
+                </div>
+            `;
+        } else {
+            papersList.innerHTML = papers.map((p, idx) => `
+                <div class="paper-item mb-2 p-3 glass-effect rounded-lg hover:bg-opacity-80 cursor-pointer transition-all border border-gray-700/20 hover:border-cyan-500/30" 
+                     onclick="loadPaper(${p.id})">
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 rounded-full gradient-primary flex items-center justify-center flex-shrink-0 text-xs text-white font-bold">
+                            ${idx + 1}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-cyan-300 truncate" title="${p.title}">
+                                ${p.title.substring(0, 30)}...
+                            </p>
+                            <p class="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                                <i class="fas fa-calendar-alt"></i>${new Date(p.created_at).toLocaleDateString()}
+                            </p>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-600 flex-shrink-0 mt-1"></i>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        document.getElementById('paper-count').textContent = papers.length;
+        document.getElementById('storage-used').textContent = papers.length > 0 ? `${(papers.length * 5).toFixed(0)}MB` : '0MB';
+    } catch (e) {
+        console.error('Failed to load papers:', e);
+        document.getElementById('papers-list').innerHTML = `
+            <div class="flex flex-col items-center justify-center h-full py-12">
+                <i class="fas fa-exclamation-triangle text-red-600 text-3xl mb-2"></i>
+                <p class="text-red-500 text-sm">Failed to load papers</p>
+            </div>
+        `;
+    }
+}
+
+async function handlePDFUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    showUploadStatus(`<i class="fas fa-spinner animate-spin mr-2"></i>Processing ${file.name}...`, 'info');
+    
+    try {
+        const response = await fetch('/api/upload-paper', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showUploadStatus(`<i class="fas fa-check-circle mr-2"></i>✅ Paper loaded: <strong>${data.title}</strong>`, 'success');
+            setTimeout(() => {
+                loadPapers();
+                loadPaper(data.paper_id);
+            }, 1500);
+        } else {
+            showUploadStatus(`<i class="fas fa-times-circle mr-2"></i>❌ ${data.error}`, 'error');
+        }
+    } catch (e) {
+        showUploadStatus(`<i class="fas fa-times-circle mr-2"></i>❌ Upload failed: ${e.message}`, 'error');
+    }
+}
+
+async function handleArxivDownload() {
+    const url = document.getElementById('arxiv-input').value.trim();
+    if (!url) {
+        showUploadStatus(`<i class="fas fa-exclamation-circle mr-2"></i>Please enter an arXiv URL`, 'error');
+        return;
+    }
+    
+    showUploadStatus(`<i class="fas fa-spinner animate-spin mr-2"></i>Downloading from arXiv...`, 'info');
+    
+    try {
+        const response = await fetch('/api/arxiv-download', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+            showUploadStatus(`<i class="fas fa-check-circle mr-2"></i>✅ Paper loaded: <strong>${data.title}</strong>`, 'success');
+            document.getElementById('arxiv-input').value = '';
+            setTimeout(() => {
+                loadPapers();
+                loadPaper(data.paper_id);
+            }, 1500);
+        } else {
+            showUploadStatus(`<i class="fas fa-times-circle mr-2"></i>❌ ${data.error}`, 'error');
+        }
+    } catch (e) {
+        showUploadStatus(`<i class="fas fa-times-circle mr-2"></i>❌ Download failed: ${e.message}`, 'error');
+    }
+}
+
+function showUploadStatus(message, type) {
+    const status = document.getElementById('upload-status');
+    const colors = {
+        'info': 'glass-effect border border-blue-500/30 bg-blue-500/10 text-blue-300',
+        'success': 'glass-effect border border-green-500/30 bg-green-500/10 text-green-300',
+        'error': 'glass-effect border border-red-500/30 bg-red-500/10 text-red-300'
+    };
+    
+    status.className = `${colors[type]} px-4 py-3 rounded-lg text-sm flex items-center fade-in`;
+    status.innerHTML = message;
+    status.classList.remove('hidden');
+    
+    if (type === 'success') {
+        setTimeout(() => status.classList.add('hidden'), 4000);
+    }
+}
+
+function loadPaper(paperId) {
+    window.location.href = `/api/paper/${paperId}`;
+}
+
+async function handleLogout() {
+    if (confirm('Are you sure you want to logout?')) {
+        try {
+            await fetch('/api/logout', { method: 'POST' });
+            window.location.href = '/login';
+        } catch (e) {
+            console.error('Logout failed:', e);
+        }
+    }
+}
+</script>
+{% endblock %}
