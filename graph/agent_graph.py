@@ -1,6 +1,5 @@
 from langgraph.graph import StateGraph, END
-from typing import TypedDict, Annotated
-import operator
+from typing import TypedDict
 
 from agents.retriever_agent import retrieve
 from agents.summarizer_agent import summarize
@@ -12,7 +11,7 @@ from agents.qa_agent import answer_general_question
 from agents.personalization_agent import personalize
 from agents.router_agent import route_user_instruction
 
-# NEW AGENTS
+# New Agents
 from agents.ppt_agent import generate_ppt_agent
 from agents.application_agent import generate_application
 
@@ -43,6 +42,7 @@ def router_node(state: AgentState):
 
 
 def decide_after_retrieve(state: AgentState):
+    """Decide next step after retrieval based on router decision"""
     tasks = state["router_decision"].get("tasks", [])
     if "qa" in tasks:
         return "qa"
@@ -59,24 +59,32 @@ workflow.add_node("flaw_detection", detect_flaws)
 workflow.add_node("context", add_context)
 workflow.add_node("qa", answer_general_question)
 workflow.add_node("personalize", personalize)
-
-# New agents
 workflow.add_node("ppt", generate_ppt_agent)
 workflow.add_node("application", generate_application)
 
 workflow.set_entry_point("router")
 workflow.add_edge("router", "retrieve")
-workflow.add_conditional_edges("retrieve", decide_after_retrieve)
 
+# Conditional routing after retrieval
+workflow.add_conditional_edges(
+    "retrieve",
+    decide_after_retrieve,
+    {
+        "qa": "qa",
+        "summarize": "summarize"
+    }
+)
+
+# Main research flow
 workflow.add_edge("summarize", "insights")
 workflow.add_edge("insights", "flaw_detection")
 workflow.add_edge("flaw_detection", "context")
 workflow.add_edge("context", "personalize")
 workflow.add_edge("qa", "personalize")
 
-# FIXED: Run ppt and application SEQUENTIALLY instead of in parallel
+# PPT and Application run sequentially after personalization
 workflow.add_edge("personalize", "ppt")
-workflow.add_edge("ppt", "application")      # ← sequential
+workflow.add_edge("ppt", "application")
 workflow.add_edge("application", END)
 
 paper_graph = workflow.compile()

@@ -1,99 +1,93 @@
-import sqlite3
-import hashlib
+import os
 import json
+import hashlib
 from datetime import datetime, timedelta
-from pathlib import Path
+from typing import List, Dict
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from knowledge.schema import PaperKnowledge
 
-DB_PATH = "paper_agent.db"
+class NeonDB:
+    def __init__(self):
+        self.conn = psycopg2.connect(os.getenv("NEON_DATABASE_URL"))
+        self.create_tables()
 
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    
-    c.execute('''CREATE TABLE IF NOT EXISTS users (
-                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                 username TEXT UNIQUE NOT NULL,
-                 password_hash TEXT NOT NULL,
-                 created_at TEXT NOT NULL)''')
-    
-    c.execute('''CREATE TABLE IF NOT EXISTS user_papers (
-                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                 user_id INTEGER NOT NULL,
-                 title TEXT NOT NULL,
-                 knowledge_json TEXT NOT NULL,
-                 summary TEXT,
-                 flaws TEXT,
-                 comparison TEXT,
-                 ppt_filename TEXT,
-                 timestamp TEXT NOT NULL,
-                 expires_at TEXT NOT NULL,
-                 FOREIGN KEY(user_id) REFERENCES users(id))''')
-    
-    conn.commit()
-    conn.close()
-    cleanup_old_data()
+    def create_tables(self):
+        with self.conn.cursor() as cur:
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    username TEXT UNIQUE NOT NULL,
+                    password_hash TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                
+                CREATE TABLE IF NOT EXISTS user_papers (
+                    id SERIAL PRIMARY KEY,
+                    user_id INTEGER REFERENCES users(id),
+                    title TEXT NOT NULL,
+                    knowledge_json TEXT NOT NULL,
+                    summary TEXT,
+                    flaws TEXT,
+                    comparison TEXT,
+                    ppt_filename TEXT,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    expires_at TIMESTAMP NOT NULL
+                );
+            ''')
+            self.conn.commit()
 
-def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
+    def hash_password(self, password: str) -> str:
+        return hashlib.sha256(password.encode()).hexdigest()
 
-def signup(username: str, password: str) -> bool:
-    init_db()
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    try:
-        c.execute("INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)",
-                  (username, hash_password(password), datetime.now().isoformat()))
-        conn.commit()
-        return True
-    except sqlite3.IntegrityError:
-        return False
-    finally:
-        conn.close()
+    def signup(self, username: str, password: str) -> bool:
+        try:
+            with self.conn.cursor() as cur:
+                cur.execute("INSERT INTO users (username, password_hash) VALUES (%s, %s)",
+                           (username, self.hash_password(password)))
+                self.conn.commit()
+                return True
+        except:
+            return False
 
-def login(username: str, password: str) -> dict | None:
-    init_db()
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT id, username FROM users WHERE username = ? AND password_hash = ?",
-              (username, hash_password(password)))
-    user = c.fetchone()
-    conn.close()
-    return {"id": user[0], "username": user[1]} if user else None
+    def login(self, username: str, password: str) -> dict | None:
+        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("SELECT id, username FROM users WHERE username = %s AND password_hash = %s",
+                       (username, self.hash_password(password)))
+            return cur.fetchone()
 
-def save_paper(user_id: int, paper: PaperKnowledge, summary: str, flaws: str, comparison: str, ppt_filename: str):
-    init_db()
-    knowledge_json = json.dumps(paper.model_dump())
-    now = datetime.now()
-    expires = now + timedelta(days=10)
-    
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute('''INSERT INTO user_papers 
-                 (user_id, title, knowledge_json, summary, flaws, comparison, ppt_filename, timestamp, expires_at)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-              (user_id, paper.title, knowledge_json, summary, flaws, comparison, ppt_filename,
-               now.isoformat(), expires.isoformat()))
-    conn.commit()
-    conn.close()
+    def save_paper(self, user_id: int, paper: PaperKnowledge, summary: str, flaws: str, comparison: str, ppt_filename: str):
+        expires = datetime.now() + timedelta(days=10)
+        with self.conn.cursor() as cur:
+            cur.execute('''
+                INSERT INTO user_papers 
+                (user_id, title, knowledge_json, summary, flaws, comparison, ppt_filename, expires_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            ''', (user_id, paper.title, json.dumps(paper.model_dump()), summary, flaws, comparison, ppt_filename, expires))
+            self.conn.commit()
 
-def get_user_papers(user_id: int) -> list[dict]:
-    init_db()
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("""SELECT id, title, summary, flaws, comparison, ppt_filename, timestamp 
-                 FROM user_papers 
-                 WHERE user_id = ? AND expires_at > ? 
-                 ORDER BY timestamp DESC""",
-              (user_id, datetime.now().isoformat()))
-    rows = c.fetchall()
-    conn.close()
-    return [{"id": r[0], "title": r[1], "summary": r[2], "flaws": r[3], "comparison": r[4], 
-             "ppt": r[5], "date": r[6]} for r in rows]
+    def get_user_papers(self, user_id: int) -> List[dict]:
+        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute("""
+                SELECT id, title, summary, flaws, comparison, ppt_filename, timestamp 
+                FROM user_papers 
+                WHERE user_id = %s AND expires_at > NOW() 
+                ORDER BY timestamp DESC
+            """, (user_id,))
+            return cur.fetchall()
 
-def cleanup_old_data():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("DELETE FROM user_papers WHERE expires_at < ?", (datetime.now().isoformat(),))
-    conn.commit()
-    conn.close()
+    def cleanup_old_data(self):
+        with self.conn.cursor() as cur:
+            cur.execute("DELETE FROM user_papers WHERE expires_at < NOW()")
+            self.conn.commit()
+
+    def self_destruct_old_papers(self):
+        """Delete old papers and their S3 files after 10 days"""
+        with self.conn.cursor() as cur:
+            cur.execute("SELECT title FROM user_papers WHERE expires_at < NOW()")
+            old_papers = cur.fetchall()
+            for (title,) in old_papers:
+                from s3_cache import delete_from_s3
+                delete_from_s3(title)
+            cur.execute("DELETE FROM user_papers WHERE expires_at < NOW()")
+            self.conn.commit()

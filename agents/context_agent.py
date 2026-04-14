@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Initialize Groq LLM once
 llm = ChatGroq(
     model=LLM_MODEL,
     temperature=0.3,
@@ -16,25 +15,23 @@ llm = ChatGroq(
 def add_context(state):
     """Context Agent: Find and compare with 3 similar papers"""
     try:
-        # Create search query from title + abstract
         query = state["paper"].title + " " + (state["paper"].abstract[:300] if state["paper"].abstract else "")
         
-        # Search on arXiv
+        # FIXED: Use new recommended way (Client.results)
+        client = arxiv.Client()
         search = arxiv.Search(
             query=query,
             max_results=3,
             sort_by=arxiv.SortCriterion.Relevance
         )
-        similar_papers = list(search.results())
+        similar_papers = list(client.results(search))
 
-        # Build comparison text
         comp_text = "Similar papers found on arXiv:\n\n"
         for p in similar_papers:
             year = p.published.year if p.published else "N/A"
             comp_text += f"• **{p.title}** ({year})\n"
             comp_text += f"  {p.summary[:180]}...\n\n"
 
-        # Prompt for comparison
         prompt = ChatPromptTemplate.from_template(
             """Compare the main paper with the following 3 similar papers.
 Focus on differences in methodology, contributions, strengths, and limitations.
@@ -50,7 +47,6 @@ Main Paper Summary:
 Provide a clear, insightful comparison."""
         )
 
-        # Run the chain
         response = (prompt | llm).invoke({
             "title": state["paper"].title,
             "comp_text": comp_text,
@@ -61,6 +57,6 @@ Provide a clear, insightful comparison."""
 
     except Exception as e:
         print(f"⚠️ Context Agent warning: {e}")
-        state["comparison"] = "Could not fetch similar papers at this time. Please try again later."
+        state["comparison"] = "Could not fetch similar papers at this time."
 
     return state
