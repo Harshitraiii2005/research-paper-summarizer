@@ -1,6 +1,9 @@
 import streamlit as st
 import json
 from datetime import datetime
+import hashlib
+import redis
+
 from ingestion.pdf_ingestor import IngestionAgent
 from embedding.embedder import ChunkingEmbedder
 from vectorstore.faiss_store import VectorMemory
@@ -11,6 +14,54 @@ from database import signup, login, save_paper, get_user_papers, init_db
 from knowledge.schema import PaperKnowledge
 from config import GROQ_API_KEY
 
+# ====================== REDIS CACHING ======================
+redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
+
+def get_cache_key(paper_title: str, query: str) -> str:
+    key = f"paper:{paper_title}:query:{query}"
+    return hashlib.md5(key.encode()).hexdigest()
+
+def make_serializable(obj):
+    """Recursively convert PaperKnowledge and other custom objects to dicts"""
+    if isinstance(obj, (str, int, float, bool, type(None))):
+        return obj
+    elif isinstance(obj, list):
+        return [make_serializable(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {k: make_serializable(v) for k, v in obj.items()}
+    elif hasattr(obj, '__dict__'):  # Custom classes like PaperKnowledge
+        if obj.__class__.__name__ == "PaperKnowledge":
+            return {
+                "__type__": "PaperKnowledge",
+                **{k: make_serializable(v) for k, v in obj.__dict__.items()}
+            }
+        return {k: make_serializable(v) for k, v in obj.__dict__.items()}
+    return str(obj)  # Fallback for any other non-serializable types
+
+def get_cached_response(paper_title: str, query: str):
+    key = get_cache_key(paper_title, query)
+    data = redis_client.get(key)
+    if data:
+        try:
+            return json.loads(data)
+        except (json.JSONDecodeError, TypeError):
+            return None
+    return None
+
+def cache_response(paper_title: str, query: str, result, ttl=3600):
+    key = get_cache_key(paper_title, query)
+    try:
+        serializable_result = make_serializable(result)
+        redis_client.setex(key, ttl, json.dumps(serializable_result))
+    except Exception as e:
+        # Fallback: cache only essential output
+        fallback = {
+            "final_output": result.get("final_output", "Task completed."),
+            "summary": result.get("summary", "")
+        }
+        redis_client.setex(key, ttl, json.dumps(fallback))
+
+# ====================== STREAMLIT CONFIG ======================
 st.set_page_config(
     page_title="🧠 PaperIntel AI",
     page_icon="🧠",
@@ -18,13 +69,13 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for premium look
+# Premium CSS
 st.markdown("""
 <style>
     .main {background-color: #0e1117;}
-    .stChatMessage {border-radius: 12px;}
-    .header {font-size: 2.2rem; font-weight: 700; color: #00d4ff;}
-    .paper-title {font-size: 1.4rem; font-weight: 600; color: #ffffff;}
+    .stChatMessage {border-radius: 12px; padding: 12px;}
+    .header {font-size: 2.4rem; font-weight: 700; color: #00d4ff; margin-bottom: 0;}
+    .paper-title {font-size: 1.35rem; font-weight: 600; color: #ffffff;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -51,11 +102,19 @@ with st.sidebar:
             for p in papers[:6]:
                 if st.button(f"📄 {p['title'][:38]}...", key=f"hist_{p['id']}"):
                     try:
-                        st.session_state.current_paper = PaperKnowledge(**json.loads(p.get("knowledge_json", "{}")))
+                        knowledge_json = p.get("knowledge_json", "{}")
+                        data = json.loads(knowledge_json)
+                        
+                        if isinstance(data, dict) and data.get("__type__") == "PaperKnowledge":
+                            clean_data = {k: v for k, v in data.items() if k != "__type__"}
+                            st.session_state.current_paper = PaperKnowledge(**clean_data)
+                        else:
+                            st.session_state.current_paper = PaperKnowledge(**data)
+                            
                         st.session_state.messages = [{"role": "assistant", "content": "✅ Paper loaded from memory."}]
                         st.rerun()
-                    except:
-                        st.error("Could not load paper")
+                    except Exception as e:
+                        st.error(f"Could not load paper: {str(e)}")
         else:
             st.info("No papers yet in last 10 days")
     else:
@@ -123,9 +182,8 @@ else:
                 st.rerun()
 
     else:
-        # Paper Loaded - Chat Interface
         st.markdown(f"**Current Paper:** {st.session_state.current_paper.title}")
-        
+
         # Chat History
         for msg in st.session_state.messages:
             with st.chat_message(msg["role"]):
@@ -139,19 +197,27 @@ else:
 
             with st.chat_message("assistant"):
                 with st.spinner("🤖 Router analyzing → Running specialized agents..."):
-                    result = paper_graph.invoke({
-                        "paper": st.session_state.current_paper,
-                        "user_instruction": user_input,
-                        "chunks": [],
-                        "summary": "", "insights": "", "flaws": "", 
-                        "comparison": "", "qa_answer": "", 
-                        "ppt_outline": "", "application": "",
-                        "mode": "researcher", "final_output": "", "ppt_file": ""
-                    })
+                    
+                    # CACHING
+                    cached = get_cached_response(st.session_state.current_paper.title, user_input)
+                    if cached:
+                        result = cached
+                        st.info("✅ Loaded from cache")
+                    else:
+                        result = paper_graph.invoke({
+                            "paper": st.session_state.current_paper,
+                            "user_instruction": user_input,
+                            "chunks": [],
+                            "summary": "", "insights": "", "flaws": "", 
+                            "comparison": "", "qa_answer": "", 
+                            "ppt_outline": "", "application": "",
+                            "mode": "researcher", "final_output": "", "ppt_file": ""
+                        })
+                        cache_response(st.session_state.current_paper.title, user_input, result)
 
                     final_response = result.get("final_output") or result.get("summary", "✅ Task completed.")
 
-                    # Display structured outputs nicely
+                    # Display structured outputs
                     if result.get("application"):
                         with st.expander("💼 Real-World Applications", expanded=True):
                             st.markdown(result["application"])
@@ -161,7 +227,12 @@ else:
                             st.markdown(result["ppt_outline"])
                         if result.get("ppt_file"):
                             with open(result["ppt_file"], "rb") as f:
-                                st.download_button("⬇️ Download PowerPoint", f, file_name="Paper_Presentation.pptx", use_container_width=True)
+                                st.download_button(
+                                    "⬇️ Download PowerPoint",
+                                    f,
+                                    file_name="Paper_Presentation.pptx",
+                                    use_container_width=True
+                                )
 
                     st.markdown(final_response)
                     st.session_state.messages.append({"role": "assistant", "content": final_response})
@@ -176,4 +247,4 @@ else:
                         result.get("ppt_file", "")
                     )
 
-st.caption("🧠 Professional Research Paper Intelligence • Powered by Harshit Rai • Built for accuracy & real-world use")
+st.caption("🧠 Professional Research Paper Intelligence • Powered by Groq • Built for accuracy & real-world use")
