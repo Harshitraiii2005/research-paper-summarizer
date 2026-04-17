@@ -126,9 +126,11 @@ async def stream_chat_with_messages(paper, query, chunks, paper_data, user_id):
     
     # Stream loading messages
     while msg_index < len(messages):
-        yield f"data: {json.dumps({'type': 'message', 'content': messages[msg_index]})}\n\n"
+        message = messages[msg_index]
+        logger.info(f"Streaming message {msg_index + 1}/{len(messages)}: {message[:50]}...")
+        yield f"data: {json.dumps({'type': 'message', 'content': message})}\n\n"
         msg_index += 1
-        await asyncio.sleep(0.5)  # Small delay between messages
+        await asyncio.sleep(0.3)  # Reduced delay for faster streaming
     
     # Process query in background
     try:
@@ -319,6 +321,16 @@ async def upload_paper(request: Request, file: UploadFile = File(...), user: dic
         
     except Exception as e:
         logger.error(f"Upload error: {str(e)}")
+        error_str = str(e).lower()
+        
+        # Handle rate limit gracefully
+        if "429" in str(e) or "rate limit" in error_str or "tokens per day" in error_str:
+            return JSONResponse({
+                "error": "API rate limit reached. Please try again later.",
+                "code": "rate_limit"
+            }, status_code=429)
+        
+        # Handle other errors
         return JSONResponse({"error": str(e)}, status_code=500)
 
 @app.post("/api/arxiv-download")
@@ -406,6 +418,11 @@ async def get_paper(paper_id: int, request: Request, user: dict = Depends(get_cu
 async def get_papers_list(user: dict = Depends(get_current_user)):
     """Get user's paper history"""
     papers = get_user_papers(user["id"])
+    # Convert any remaining datetime objects to ISO format
+    for paper in papers:
+        for key in ['created_at', 'expires_at', 'updated_at']:
+            if key in paper and hasattr(paper[key], 'isoformat'):
+                paper[key] = paper[key].isoformat()
     return JSONResponse(papers)
 
 # ====================== ROUTES: CHAT & ANALYSIS ======================

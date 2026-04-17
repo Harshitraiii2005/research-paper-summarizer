@@ -150,7 +150,7 @@
 <!-- Loading Modal (Modern Overlay) -->
 <div id="loading-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center">
     <div class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
-    <div class="glass-effect-strong rounded-2xl p-8 max-w-md w-96 relative z-10 border border-gray-700/30">
+    <div class="glass-effect-strong rounded-2xl p-8 max-w-md w-96 relative z-10 border border-gray-700/30 flex flex-col">
         <div class="flex items-center justify-between mb-6">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-full gradient-primary flex items-center justify-center animate-spin" style="animation: spin 2s linear infinite;">
@@ -160,20 +160,20 @@
             </div>
         </div>
         
-        <div id="loading-messages" class="space-y-2 mb-6 h-40 overflow-y-auto pr-2">
-            <div class="flex items-center gap-2 text-sm text-gray-300">
+        <div id="loading-messages" class="space-y-1 mb-6 max-h-48 overflow-y-auto pr-3 flex-1 scrollbar-thin scrollbar-thumb-cyan-500/30 scrollbar-track-gray-800/20">
+            <div class="flex items-center gap-2 text-sm text-cyan-300 font-semibold">
                 <i class="fas fa-circle-notch animate-spin text-cyan-400 text-xs"></i>
-                <span>Initializing agents...</span>
+                <span>🚀 Starting analysis...</span>
             </div>
         </div>
         
-        <div class="space-y-2">
+        <div class="space-y-2 mt-auto">
             <div class="flex items-center justify-between text-xs text-gray-400 mb-2">
-                <span>Processing...</span>
+                <span id="processing-status">Processing agents...</span>
                 <span id="progress-percent">0%</span>
             </div>
             <div class="w-full bg-gray-700/20 rounded-full h-2 overflow-hidden">
-                <div class="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full animate-pulse" style="width: 100%;"></div>
+                <div class="bg-gradient-to-r from-cyan-500 to-blue-500 h-2 rounded-full animate-pulse transition-all duration-300" id="progress-bar" style="width: 0%;"></div>
             </div>
         </div>
     </div>
@@ -268,6 +268,7 @@ async function processQuery(query) {
                 if (line.startsWith('data: ')) {
                     try {
                         const data = JSON.parse(line.slice(6));
+                        console.log('[Stream Event]', data.type, data.content?.substring?.(0, 60) || data.content);
                         
                         if (data.type === 'message') {
                             addLoadingMessage(data.content);
@@ -381,30 +382,44 @@ function formatMarkdown(text) {
 function addLoadingMessage(message) {
     const loadingDiv = document.getElementById('loading-messages');
     const msgEl = document.createElement('div');
-    msgEl.className = 'flex items-center gap-2 text-sm text-gray-300 animate-pulse fade-in';
+    msgEl.className = 'flex items-center gap-2 text-xs text-cyan-200 animate-pulse';
     msgEl.innerHTML = `
-        <i class="fas fa-circle-notch animate-spin text-cyan-400 text-xs flex-shrink-0"></i>
-        <span>${message}</span>
+        <i class="fas fa-check text-cyan-400 text-xs flex-shrink-0"></i>
+        <span class="line-clamp-1">${message}</span>
     `;
     loadingDiv.appendChild(msgEl);
-    loadingDiv.scrollTop = loadingDiv.scrollHeight;
+    // Auto-scroll to bottom
+    setTimeout(() => {
+        loadingDiv.scrollTop = loadingDiv.scrollHeight;
+    }, 10);
 }
 
 function startLoadingMessages() {
     document.getElementById('loading-messages').innerHTML = '';
+    document.getElementById('loading-messages').innerHTML = `
+        <div class="flex items-center gap-2 text-sm text-cyan-300 font-semibold">
+            <i class="fas fa-circle-notch animate-spin text-cyan-400 text-xs"></i>
+            <span>🚀 Starting analysis...</span>
+        </div>
+    `;
 }
 
 function updateProgressBar() {
-    const percent = Math.min(messageCount * 2.5, 95);
+    const percent = Math.min(messageCount * 3.5, 98);
     document.getElementById('progress-percent').textContent = Math.round(percent) + '%';
+    document.getElementById('progress-bar').style.width = percent + '%';
 }
 
 function showLoadingModal() {
-    document.getElementById('loading-modal').classList.remove('hidden');
+    const modal = document.getElementById('loading-modal');
+    modal.classList.remove('hidden');
+    modal.style.display = 'flex';
 }
 
 function hideLoadingModal() {
-    document.getElementById('loading-modal').classList.add('hidden');
+    const modal = document.getElementById('loading-modal');
+    modal.classList.add('hidden');
+    modal.style.display = 'none';
 }
 
 async function handleLogout() {

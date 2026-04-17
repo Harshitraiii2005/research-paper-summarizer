@@ -184,7 +184,18 @@ def get_user_papers(user_id: int, limit: int = 10) -> list:
         LIMIT %s;
     """, (user_id, limit))
     
-    papers = [dict(row) for row in cur.fetchall()]
+    papers = []
+    for row in cur.fetchall():
+        paper = dict(row)
+        # Convert datetime objects to ISO format strings for JSON serialization
+        if 'created_at' in paper and paper['created_at']:
+            paper['created_at'] = paper['created_at'].isoformat()
+        if 'expires_at' in paper and paper['expires_at']:
+            paper['expires_at'] = paper['expires_at'].isoformat()
+        if 'updated_at' in paper and paper['updated_at']:
+            paper['updated_at'] = paper['updated_at'].isoformat()
+        papers.append(paper)
+    
     cur.close()
     conn.close()
     

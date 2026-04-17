@@ -1,15 +1,42 @@
-pymupdf
-pymupdf4llm
-pydantic
-langchain
-langchain-openai
-langchain-community
-langgraph
-sentence-transformers
-faiss-cpu
-arxiv
-python-dotenv
-streamlit
-python-pptx
-lxml
-requests
+# Core LLM and NLP
+langchain==0.1.0
+langgraph==0.0.24
+langchain-core>=0.1.0
+langchain-community>=0.0.1
+langchain-openai>=0.0.1
+langchain-groq==0.0.1
+groq==0.4.1
+
+# FastAPI & Web Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+starlette==0.27.0
+python-multipart==0.0.6
+jinja2==3.1.2
+
+# Database & Storage
+psycopg2-binary==2.9.9
+redis==5.0.1
+boto3==1.29.7
+
+# PDF Processing
+pymupdf>=1.23.0
+pymupdf4llm>=0.1.0
+pypdf==3.17.1
+lxml>=4.9.0
+
+# Embeddings & Vector Search
+sentence-transformers>=2.2.0
+faiss-cpu==1.7.4
+
+# Data & Configuration
+pydantic==2.5.0
+python-dotenv==1.0.0
+
+# Utility Libraries
+arxiv==1.4.8
+requests==2.31.0
+python-pptx==0.6.21
+
+# Text Processing
+langchain-text-splitters>=0.0.1
