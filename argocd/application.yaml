@@ -9,20 +9,20 @@ spec:
   project: default
   
   source:
-    repoURL: https://github.com/your-username/research-paper-summarizer  # Update
+    repoURL: https://github.com/Harshitraiii2005/research-paper-summarizer.git
     targetRevision: main
     path: k8s
     
     plugin:
       name: kustomize
     
-    # Parameters that ArgoCD will update from Jenkins
+    
     helm:
       parameters:
       - name: image.tag
         value: latest
       - name: image.repository
-        value: your-dockerhub-username/paperintel
+        value: harshitrai20/paperintel
   
   destination:
     server: https://kubernetes.default.svc
@@ -76,7 +76,7 @@ data:
   # Repository credentials
   repositories: |
     - type: git
-      url: https://github.com/your-username/research-paper-summarizer
+      url: https://github.com/Harshitraiii2005/research-paper-summarizer.git
       username: github-username
       password: github-token
 ---
@@ -89,7 +89,7 @@ metadata:
     argocd.argoproj.io/secret-type: repository
 stringData:
   type: git
-  url: https://github.com/your-username/research-paper-summarizer
+  url: https://github.com/Harshitraiii2005/research-paper-summarizer.git
   username: your-github-username
   password: your-github-token
 ---

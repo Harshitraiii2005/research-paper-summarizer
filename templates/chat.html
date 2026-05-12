@@ -277,6 +277,10 @@ async function processQuery(query) {
                         } else if (data.type === 'cached') {
                             addLoadingMessage(data.content);
                         } else if (data.type === 'result') {
+                            // FIX: set progress to 100% here, inside the loop where 'data' is in scope
+                            document.getElementById('progress-percent').textContent = '100%';
+                            document.getElementById('progress-bar').style.width = '100%';
+
                             hideLoadingModal();
                             const result = data.content;
                             
@@ -366,15 +370,16 @@ function addMessage(role, content) {
 }
 
 function formatMarkdown(text) {
-    let html = text
+    // FIX: removed the broken double href replacement that was corrupting all links.
+    // Links rendered by the backend (e.g. /api/download-ppt/...) are already absolute-path
+    // hrefs and work correctly as-is; no origin prefix manipulation needed.
+    const html = text
         .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-cyan-300">$1</strong>')
         .replace(/__(.*?)__/g, '<strong class="font-bold text-cyan-300">$1</strong>')
         .replace(/\*(.*?)\*/g, '<em class="italic">$1</em>')
         .replace(/_(.*?)_/g, '<em class="italic">$1</em>')
         .replace(/•\s/g, '<span class="text-cyan-400">•</span> ')
-        .replace(/\n/g, '<br>')
-        .replace(/<a href="/g, '<a href="' + (location.origin || 'http://localhost:8001'))
-        .replace(/href="\/api/g, `href="${location.origin || 'http://localhost:8001'}/api`);
+        .replace(/\n/g, '<br>');
     
     return html;
 }
@@ -404,6 +409,8 @@ function startLoadingMessages() {
     `;
 }
 
+// FIX: updateProgressBar now only uses messageCount (which IS in scope here).
+// The result=100% case is handled directly inside the SSE loop where 'data' exists.
 function updateProgressBar() {
     const percent = Math.min(messageCount * 3.5, 98);
     document.getElementById('progress-percent').textContent = Math.round(percent) + '%';

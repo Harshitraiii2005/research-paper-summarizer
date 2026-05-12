@@ -56,15 +56,18 @@ class NeonDB:
                        (username, self.hash_password(password)))
             return cur.fetchone()
 
-    def save_paper(self, user_id: int, paper: PaperKnowledge, summary: str, flaws: str, comparison: str, ppt_filename: str):
+    def save_paper(self, user_id: int, paper: PaperKnowledge, summary: str, flaws: str, comparison: str, ppt_filename: str) -> int:
         expires = datetime.now() + timedelta(days=10)
         with self.conn.cursor() as cur:
             cur.execute('''
                 INSERT INTO user_papers 
                 (user_id, title, knowledge_json, summary, flaws, comparison, ppt_filename, expires_at)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
             ''', (user_id, paper.title, json.dumps(paper.model_dump()), summary, flaws, comparison, ppt_filename, expires))
+            paper_id = cur.fetchone()[0]
             self.conn.commit()
+            return paper_id
 
     def get_user_papers(self, user_id: int) -> List[dict]:
         with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -75,6 +78,17 @@ class NeonDB:
                 ORDER BY timestamp DESC
             """, (user_id,))
             return cur.fetchall()
+
+    def get_paper_by_id(self, paper_id: int, user_id: int):
+        with self.conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                "SELECT id, title, knowledge_json, summary, flaws, comparison, ppt_filename, timestamp "
+                "FROM user_papers "
+                "WHERE id = %s AND user_id = %s AND expires_at > NOW()",
+                (paper_id, user_id)
+            )
+            row = cur.fetchone()
+            return dict(row) if row else None
 
     def cleanup_old_data(self):
         with self.conn.cursor() as cur:
@@ -91,3 +105,26 @@ class NeonDB:
                 delete_from_s3(title)
             cur.execute("DELETE FROM user_papers WHERE expires_at < NOW()")
             self.conn.commit()
+
+
+# Create single DB instance
+_db = NeonDB()
+
+# Expose functions
+def init_db():
+    return _db
+
+def signup(username, password):
+    return _db.signup(username, password)
+
+def login(username, password):
+    return _db.login(username, password)
+
+def save_paper(user_id, paper, summary, flaws, comparison, ppt_filename) -> int:
+    return _db.save_paper(user_id, paper, summary, flaws, comparison, ppt_filename)
+
+def get_user_papers(user_id):
+    return _db.get_user_papers(user_id)
+
+def get_paper_by_id(paper_id, user_id):
+    return _db.get_paper_by_id(paper_id, user_id)

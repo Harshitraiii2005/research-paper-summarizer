@@ -15,9 +15,12 @@ llm = ChatGroq(
 def add_context(state):
     """Context Agent: Find and compare with 3 similar papers"""
     try:
-        query = state["paper"].title + " " + (state["paper"].abstract[:300] if state["paper"].abstract else "")
-        
-        # FIXED: Use new recommended way (Client.results)
+        # FIX: derive query from state first, before using it
+        raw_query = state["paper"].title
+        words = raw_query.lower().split()
+        query = " ".join(words[:3] + words[-2:])
+
+        # Use new recommended way (Client.results)
         client = arxiv.Client()
         search = arxiv.Search(
             query=query,
