@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  grobid:
+    image: grobid/grobid:0.8.0
+    container_name: grobid-service
+    ports:
+      - "8070:8070"
+    networks:
+      - paperintel-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8070/api/isalive"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis-service
+    ports:
+      - "6380:6379"
+    networks:
+      - paperintel-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  paperintel-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: paperintel-api
+    ports:
+      - "8001:8001"
+    environment:
+      - GROBID_URL=http://grobid:8070
+      - REDIS_URL=redis://redis:6379
+    env_file:
+      - .env
+    depends_on:
+      grobid:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - paperintel-network
+
+networks:
+  paperintel-network:
+    driver: bridge
