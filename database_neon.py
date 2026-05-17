@@ -1,7 +1,3 @@
-"""
-Neon PostgreSQL Database Module
-Handles user management, paper history, and 10-day auto-destruct
-"""
 import os
 from dotenv import load_dotenv
 import psycopg2
