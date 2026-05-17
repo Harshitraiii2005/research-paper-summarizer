@@ -16,7 +16,7 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/harshitrai20/paperintel
+    repoURL: https://github.com/Harshitraiii2005/research-paper-summarizer.git
     targetRevision: HEAD
     path: k8s
     directory:
