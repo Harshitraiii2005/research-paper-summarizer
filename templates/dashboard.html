@@ -2,7 +2,7 @@
 
 {% block content %}
 <div class="flex flex-col h-screen w-screen">
-    <!-- Top Navigation Bar -->
+    
     <nav class="glass-effect-strong border-b border-gray-700/30 px-6 py-4 flex items-center justify-between flex-shrink-0">
         <div class="flex items-center gap-3">
             <div class="w-10 h-10 rounded-lg gradient-primary flex items-center justify-center">
@@ -28,20 +28,20 @@
         </div>
     </nav>
     
-    <!-- Main Content -->
+    
     <div class="flex-1 overflow-hidden flex">
-        <!-- Left Panel: Upload Section -->
+        
         <div class="flex-1 overflow-y-auto p-8 border-r border-gray-700/30">
             <div class="max-w-2xl">
-                <!-- Header -->
+                
                 <div class="mb-8">
                     <h2 class="text-3xl font-bold mb-2">Welcome back! 👋</h2>
                     <p class="text-gray-400">Upload a research paper or load one from your history</p>
                 </div>
 
-                <!-- Upload Cards -->
+                
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                    <!-- Upload PDF Card -->
+                    
                     <div 
                         class="card rounded-2xl p-8 border-2 border-dashed border-gray-700/50 hover:border-cyan-500/50 cursor-pointer transition-all hover:bg-opacity-100"
                         onclick="document.getElementById('pdf-input').click()"
@@ -57,7 +57,7 @@
                         <input type="file" id="pdf-input" accept=".pdf" class="hidden" onchange="handlePDFUpload(event)">
                     </div>
 
-                    <!-- ArXiv Download Card -->
+                    
                     <div class="card rounded-2xl p-8">
                         <div class="mb-4">
                             <div class="w-16 h-16 rounded-full gradient-primary flex items-center justify-center mb-4">
@@ -83,10 +83,10 @@
                     </div>
                 </div>
 
-                <!-- Upload Status -->
+                
                 <div id="upload-status" class="hidden mb-8"></div>
 
-                <!-- Process Flow -->
+                
                 <div class="card rounded-2xl p-6 border-l-4 border-cyan-500/50">
                     <h3 class="font-semibold mb-4 flex items-center gap-2">
                         <i class="fas fa-bolt text-cyan-400"></i>What happens next?
@@ -125,9 +125,9 @@
             </div>
         </div>
 
-        <!-- Right Panel: Paper History -->
+        
         <div class="w-96 glass-effect-strong border-l border-gray-700/30 overflow-hidden flex flex-col flex-shrink-0">
-            <!-- Header -->
+            
             <div class="p-6 border-b border-gray-700/20 flex-shrink-0">
                 <h3 class="text-lg font-bold gradient-text mb-1 flex items-center gap-2">
                     <i class="fas fa-history"></i>10-Day History
@@ -135,7 +135,7 @@
                 <p class="text-xs text-gray-500">Papers stored temporarily</p>
             </div>
 
-            <!-- Papers List -->
+            
             <div id="papers-list" class="flex-1 overflow-y-auto p-4">
                 <div class="flex flex-col items-center justify-center h-full py-12">
                     <i class="fas fa-hourglass-half text-gray-600 text-3xl mb-2"></i>
@@ -143,7 +143,7 @@
                 </div>
             </div>
 
-            <!-- Stats Footer -->
+            
             <div class="border-t border-gray-700/20 p-4 flex-shrink-0">
                 <div class="grid grid-cols-2 gap-4">
                     <div class="glass-effect rounded-lg p-3 text-center">

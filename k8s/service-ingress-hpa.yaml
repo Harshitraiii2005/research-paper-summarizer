@@ -12,14 +12,13 @@ spec:
   ports:
   - name: http
     port: 80
-    targetPort: 8001    # Matches containerPort in deployment.yaml
+    targetPort: 8001
     protocol: TCP
   sessionAffinity: ClientIP
   sessionAffinityConfig:
     clientIP:
       timeoutSeconds: 3600
 ---
-# NodePort for local minikube access (use this to test without ingress)
 apiVersion: v1
 kind: Service
 metadata:
@@ -35,7 +34,7 @@ spec:
   - name: http
     port: 8001
     targetPort: 8001
-    nodePort: 30001    # Access via: minikube ip:30001
+    nodePort: 30001
     protocol: TCP
 ---
 apiVersion: networking.k8s.io/v1
@@ -50,17 +49,9 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "600"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
     nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
-    # Uncomment below when you have a real domain + cert-manager
-    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
 spec:
-  # Uncomment tls block when you have a real domain
-  # tls:
-  # - hosts:
-  #   - paperintel.example.com
-  #   secretName: paperintel-tls
   rules:
-  - host: paperintel.local   # For local: add to /etc/hosts -> <minikube ip> paperintel.local
+  - host: paperintel.local
     http:
       paths:
       - path: /
@@ -92,8 +83,8 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: paperintel
-  minReplicas: 1    # 1 for minikube, set to 3 for production
-  maxReplicas: 5    # 5 for minikube, set to 10 for production
+  minReplicas: 1
+  maxReplicas: 5
   metrics:
   - type: Resource
     resource:

@@ -7,7 +7,7 @@ metadata:
     app: paperintel
     version: v1
 spec:
-  replicas: 1   # Start with 1 for minikube, increase for production
+  replicas: 1
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -37,8 +37,6 @@ spec:
 
       containers:
       - name: paperintel
-        # Jenkins CI builds: harshitrai20/paperintel:<BUILD_NUMBER>
-        # ArgoCD updates this tag automatically on each build
         image: harshitrai20/paperintel:latest
         imagePullPolicy: Always
 

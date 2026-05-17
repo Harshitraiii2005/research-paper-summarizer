@@ -1,5 +1,4 @@
 ---
-# Redis PVC
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -8,12 +7,11 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: standard   # minikube default; change to 'local' for bare metal
+  storageClassName: standard
   resources:
     requests:
       storage: 10Gi
 ---
-# Redis Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -67,7 +65,6 @@ spec:
         persistentVolumeClaim:
           claimName: redis-pvc
 ---
-# Redis Service
 apiVersion: v1
 kind: Service
 metadata:
@@ -82,7 +79,6 @@ spec:
   - port: 6379
     targetPort: 6379
 ---
-# Grobid Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -127,7 +123,6 @@ spec:
           timeoutSeconds: 5
           failureThreshold: 3
 ---
-# Grobid Service
 apiVersion: v1
 kind: Service
 metadata:

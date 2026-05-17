@@ -10,6 +10,6 @@ def personalize(state):
         parts.append("📊 **Comparison with Related Work**\n" + state["comparison"])
     if state.get("qa_answer"):
         parts.append("❓ **Answer to Your Question**\n" + state["qa_answer"])
-    
+
     state["final_output"] = "\n\n".join(parts)
     return state

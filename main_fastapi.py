@@ -1,7 +1,3 @@
-"""
-PaperIntel AI — FastAPI (single file, no templates folder)
-Exact port of the Streamlit app. Same backend logic, same flow.
-"""
 import os, pickle, hashlib, tempfile, logging, json, asyncio
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -15,7 +11,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 load_dotenv()
 
-# ── project imports (same as Streamlit) ──────────────────────────────────────
+
 from ingestion.pdf_ingestor import IngestionAgent
 from embedding.embedder import ChunkingEmbedder
 from utils.arxiv_downloader import download_arxiv_paper
@@ -25,9 +21,9 @@ from knowledge.schema import PaperKnowledge
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# ═══════════════════════════════════════════════════════
-#  DATABASE  (inline — replaces database.py dependency)
-# ═══════════════════════════════════════════════════════
+
+
+
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import hashlib as _hl
@@ -272,51 +268,51 @@ CSS = """
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;width:100%;overflow:hidden}
 body{font-family:'Inter',sans-serif;
-     background:linear-gradient(135deg,#0a0e27 0%,#11152d 50%,#1a1a3e 100%);
-     color:#e2e8f0}
+     background:linear-gradient(135deg,
+     color:
 .glass{background:rgba(15,23,42,.6);backdrop-filter:blur(12px);
        border:1px solid rgba(0,212,255,.15);border-radius:12px}
 .glass-s{background:rgba(10,14,39,.85);backdrop-filter:blur(16px);
           border:1px solid rgba(0,212,255,.2)}
-.gt{background:linear-gradient(135deg,#00d4ff,#0099cc);
+.gt{background:linear-gradient(135deg,
     -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.gb{background:linear-gradient(135deg,#00d4ff,#0099cc)}
+.gb{background:linear-gradient(135deg,
 .btn{cursor:pointer;border:none;border-radius:8px;
      font-family:'Inter',sans-serif;font-weight:600;transition:all .2s}
-.bp{background:linear-gradient(135deg,#00d4ff,#0099cc);color:#0a0e27;padding:10px 22px}
+.bp{background:linear-gradient(135deg,
 .bp:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,212,255,.4)}
 .bs{background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.3);
-    color:#00d4ff;padding:8px 16px}
+    color:
 .bs:hover{background:rgba(0,212,255,.15)}
 input,textarea{width:100%;background:rgba(30,35,70,.4);
-  border:1px solid rgba(0,212,255,.2);color:#e2e8f0;
+  border:1px solid rgba(0,212,255,.2);color:
   padding:10px 14px;border-radius:8px;
   font-family:'Inter',sans-serif;font-size:.9rem;transition:all .2s}
 input:focus,textarea:focus{outline:none;border-color:rgba(0,212,255,.55);
   box-shadow:0 0 12px rgba(0,212,255,.12)}
-input::placeholder,textarea::placeholder{color:#4a5568}
+input::placeholder,textarea::placeholder{color:
 textarea{resize:none}
 ::-webkit-scrollbar{width:6px}
 ::-webkit-scrollbar-track{background:rgba(30,35,70,.2);border-radius:6px}
-::-webkit-scrollbar-thumb{background:linear-gradient(#00d4ff,#0099cc);border-radius:6px}
-.bu{background:linear-gradient(135deg,#0e7fa8,#0a5f80);
+::-webkit-scrollbar-thumb{background:linear-gradient(
+.bu{background:linear-gradient(135deg,
     border-radius:18px 18px 4px 18px;padding:12px 16px;
     max-width:75%;margin-left:auto;word-break:break-word;font-size:.9rem}
 .ba{background:rgba(15,23,42,.8);border:1px solid rgba(0,212,255,.15);
     border-radius:18px 18px 18px 4px;padding:14px 16px;
     max-width:85%;word-break:break-word;font-size:.9rem;line-height:1.7}
 .bsy{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.2);
-     border-radius:10px;padding:10px 14px;font-size:.85rem;color:#86efac}
+     border-radius:10px;padding:10px 14px;font-size:.85rem;color:
 .ber{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);
-     border-radius:10px;padding:10px 14px;font-size:.85rem;color:#fca5a5}
+     border-radius:10px;padding:10px 14px;font-size:.85rem;color:
 .sb{width:260px;flex-shrink:0;display:flex;flex-direction:column;
     height:100%;border-right:1px solid rgba(0,212,255,.1);
     background:rgba(10,14,39,.7);overflow-y:auto;padding:14px}
 .si{padding:9px 12px;border-radius:8px;cursor:pointer;
-    font-size:.8rem;color:#94a3b8;transition:all .2s;
+    font-size:.8rem;color:
     border:1px solid transparent;margin-bottom:4px;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.si:hover{background:rgba(0,212,255,.08);border-color:rgba(0,212,255,.2);color:#e2e8f0}
+.si:hover{background:rgba(0,212,255,.08);border-color:rgba(0,212,255,.2);color:
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);
        backdrop-filter:blur(4px);z-index:100;
        display:flex;align-items:center;justify-content:center}
@@ -324,7 +320,7 @@ textarea{resize:none}
       border-radius:16px;padding:28px;width:370px;max-width:92vw}
 .pt{width:100%;background:rgba(255,255,255,.08);border-radius:99px;
     height:6px;overflow:hidden;margin-top:10px}
-.pf{height:100%;background:linear-gradient(90deg,#00d4ff,#0099cc);
+.pf{height:100%;background:linear-gradient(90deg,
     border-radius:99px;transition:width .4s ease}
 @keyframes spin{to{transform:rotate(360deg)}}
 @keyframes fu{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
@@ -359,7 +355,7 @@ def login_page():
     <div style="display:flex;border-bottom:1px solid rgba(0,212,255,.15);margin-bottom:22px">
       <button class="btn" id="tl" onclick="tab('login')"
         style="flex:1;padding:10px;background:none;color:#00d4ff;
-               border-bottom:2px solid #00d4ff;border-radius:0;font-size:.88rem">
+               border-bottom:2px solid
         🔑 Login</button>
       <button class="btn" id="ts" onclick="tab('signup')"
         style="flex:1;padding:10px;background:none;color:#64748b;

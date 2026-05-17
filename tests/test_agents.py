@@ -6,7 +6,7 @@ import pytest
 from graph.agent_graph import paper_graph
 from knowledge.schema import PaperKnowledge
 
-# Proper test paper object
+
 test_paper = PaperKnowledge(
     title="Review of the Epilepsy, Including Its Causes, Symptoms, Biomarkers, and Management",
     authors=["Yash Srivastav", "Akhandnath Prajapati", "Prachi Agrahari", "Madhaw Kumar"],

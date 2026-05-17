@@ -6,7 +6,7 @@ llm = ChatGroq(model=LLM_MODEL, temperature=0.2, groq_api_key=GROQ_API_KEY)
 
 def generate_insights(state):
     context = "\n\n".join([c["text"][:500] for c in state["chunks"][:15]])
-    
+
     prompt = ChatPromptTemplate.from_template(
         """You are an elite research insight generator.
 
@@ -26,7 +26,7 @@ Cover:
 
 Use professional academic tone. Be specific and thoughtful."""
     )
-    
+
     chain = prompt | llm
     state["insights"] = chain.invoke({
         "title": state["paper"].title,

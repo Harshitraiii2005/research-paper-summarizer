@@ -10,16 +10,16 @@ import hashlib
 import logging
 from typing import Optional
 
-# Load environment variables
+
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# Redis Configuration
+
 REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 REDIS_DB = int(os.getenv("REDIS_DB", 0))
-CACHE_TTL = 3600  # 1 hour
+CACHE_TTL = 3600
 
 try:
     redis_client = redis.Redis(
@@ -76,7 +76,7 @@ def cache_response(paper_title: str, query: str, result: dict, ttl: int = CACHE_
     """Cache response with TTL"""
     if not redis_client:
         return
-    
+
     try:
         key = get_cache_key(paper_title, query)
         serializable_result = make_serializable(result)
@@ -104,7 +104,7 @@ def health_check() -> bool:
     """Check Redis connection"""
     if not redis_client:
         return False
-    
+
     try:
         redis_client.ping()
         return True

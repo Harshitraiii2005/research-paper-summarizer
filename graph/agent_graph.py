@@ -15,7 +15,7 @@ from agents.qa_agent import answer_general_question
 from agents.personalization_agent import personalize
 from agents.router_agent import route_user_instruction
 
-# New Agents
+
 from agents.ppt_agent import generate_ppt_agent
 from agents.application_agent import generate_application
 
@@ -86,7 +86,7 @@ workflow.add_node("application", timed_node("application", generate_application)
 workflow.set_entry_point("router")
 workflow.add_edge("router", "retrieve")
 
-# Conditional routing after retrieval
+
 workflow.add_conditional_edges(
     "retrieve",
     decide_after_retrieve,
@@ -96,14 +96,14 @@ workflow.add_conditional_edges(
     }
 )
 
-# Main research flow
+
 workflow.add_edge("summarize", "insights")
 workflow.add_edge("insights", "flaw_detection")
 workflow.add_edge("flaw_detection", "context")
 workflow.add_edge("context", "personalize")
 workflow.add_edge("qa", "personalize")
 
-# PPT and Application run sequentially after personalization
+
 workflow.add_edge("personalize", "ppt")
 workflow.add_edge("ppt", "application")
 workflow.add_edge("application", END)

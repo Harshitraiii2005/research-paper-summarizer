@@ -37,7 +37,7 @@ Be extremely strict. If anything is missing or inaccurate, score below 8."""
         "context": context
     })
 
-    # FIX: Parse actual score from LLM response instead of hardcoding 8.5
+
     try:
         parsed = _json.loads(resp.content)
         score = float(parsed.get("score", 8.5))
@@ -46,7 +46,7 @@ Be extremely strict. If anything is missing or inaccurate, score below 8."""
 
     state["critique"] = {"score": score, "feedback": resp.content}
 
-    # Loop logic: re-retrieve if quality is too low
+
     if state["critique"]["score"] < 8.0:
         state["user_instruction"] = state.get("user_instruction", "") + " Focus on missing points."
         return {"next": "retrieve"}

@@ -3,7 +3,7 @@ from typing import List, Dict, Union
 
 class Figure(BaseModel):
     caption: str
-    page: Union[int, str] = 0          # Allow both int and string
+    page: Union[int, str] = 0
     description: str = ""
 
     @field_validator('page', mode='before')

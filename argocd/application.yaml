@@ -30,9 +30,9 @@ spec:
   
   syncPolicy:
     automated:
-      prune: true           # Delete resources not in git
-      selfHeal: true        # Auto-sync on cluster changes
-      allowEmpty: false     # Prevent accidental deletion
+      prune: true
+      selfHeal: true
+      allowEmpty: false
     
     syncOptions:
     - CreateNamespace=true
@@ -48,7 +48,6 @@ spec:
   
   revisionHistoryLimit: 10
   
-  # Ignore differences in fields that constantly change
   ignoreDifferences:
   - group: apps
     kind: Deployment
@@ -61,19 +60,14 @@ metadata:
   name: argocd-cm
   namespace: argocd
 data:
-  # Enable server insecure mode for testing
   server.insecure: "false"
   
-  # Git URL pattern for GitHub
-  url: https://argocd.example.com  # Update with your ArgoCD URL
+  url: https://argocd.example.com
   
-  # Application instance label key
   application.instanceLabelKey: argocd.argoproj.io/instance
   
-  # Webhook config
   webhook.github.secret: github-webhook-secret
   
-  # Repository credentials
   repositories: |
     - type: git
       url: https://github.com/Harshitraiii2005/research-paper-summarizer.git
@@ -134,7 +128,7 @@ metadata:
   name: argocd-image-sync
   namespace: argocd
 spec:
-  schedule: "*/5 * * * *"  # Every 5 minutes
+  schedule: "*/5 * * * *"
   jobTemplate:
     spec:
       template:

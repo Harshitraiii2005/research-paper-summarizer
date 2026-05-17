@@ -10,12 +10,12 @@ from datetime import datetime, timedelta
 from typing import Optional
 import logging
 
-# Load environment variables
+
 load_dotenv()
 
 logger = logging.getLogger(__name__)
 
-# AWS S3 Configuration
+
 S3_BUCKET = os.getenv("S3_BUCKET", "paperintel-vectors")
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
@@ -38,13 +38,13 @@ def upload_vectors_to_s3(chunks, paper_title: str, user_id: int) -> str:
     """Upload FAISS vector chunks to S3"""
     try:
         s3_key = generate_vector_key(paper_title, user_id)
-        
-        # Serialize chunks
+
+
         vector_data = pickle.dumps(chunks)
-        
-        # Add metadata with 10-day expiry
+
+
         expires_at = (datetime.now() + timedelta(days=10)).isoformat()
-        
+
         s3_client.put_object(
             Bucket=S3_BUCKET,
             Key=s3_key,
@@ -56,10 +56,10 @@ def upload_vectors_to_s3(chunks, paper_title: str, user_id: int) -> str:
                 "uploaded_at": datetime.now().isoformat()
             }
         )
-        
+
         logger.info(f"✅ Uploaded vectors to S3: {s3_key}")
         return s3_key
-        
+
     except Exception as e:
         logger.error(f"❌ Failed to upload vectors to S3: {str(e)}")
         return None

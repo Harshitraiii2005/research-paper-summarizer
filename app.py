@@ -14,7 +14,7 @@ from database import signup, login, save_paper, get_user_papers, init_db
 from knowledge.schema import PaperKnowledge
 from config import GROQ_API_KEY
 
-# ====================== REDIS CACHING ======================
+
 redis_client = redis.Redis(host='localhost', port=6379, db=0, decode_responses=True)
 
 def get_cache_key(paper_title: str, query: str) -> str:
@@ -72,10 +72,10 @@ st.set_page_config(
 # Premium CSS
 st.markdown("""
 <style>
-    .main {background-color: #0e1117;}
+    .main {background-color:
     .stChatMessage {border-radius: 12px; padding: 12px;}
-    .header {font-size: 2.4rem; font-weight: 700; color: #00d4ff; margin-bottom: 0;}
-    .paper-title {font-size: 1.35rem; font-weight: 600; color: #ffffff;}
+    .header {font-size: 2.4rem; font-weight: 700; color:
+    .paper-title {font-size: 1.35rem; font-weight: 600; color:
 </style>
 """, unsafe_allow_html=True)
 

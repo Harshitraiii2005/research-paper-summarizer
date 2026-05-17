@@ -3,7 +3,6 @@ kind: Namespace
 metadata:
   name: monitoring
 ---
-# Prometheus ConfigMap
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -28,12 +27,10 @@ data:
     - '/etc/prometheus/rules/*.yml'
     
     scrape_configs:
-    # Prometheus self monitoring
     - job_name: 'prometheus'
       static_configs:
       - targets: ['localhost:9090']
     
-    # Kubernetes API server
     - job_name: 'kubernetes-apiservers'
       kubernetes_sd_configs:
       - role: endpoints
@@ -46,7 +43,6 @@ data:
         action: keep
         regex: default;kubernetes;https
     
-    # Node Exporter
     - job_name: 'kubernetes-nodes'
       kubernetes_sd_configs:
       - role: node
@@ -64,7 +60,6 @@ data:
         target_label: __metrics_path__
         replacement: /api/v1/nodes/${1}/proxy/metrics
     
-    # Kubelet
     - job_name: 'kubernetes-pods'
       kubernetes_sd_configs:
       - role: pod
@@ -90,7 +85,6 @@ data:
         action: replace
         target_label: kubernetes_pod_name
     
-    # PaperIntel Application
     - job_name: 'paperintel'
       kubernetes_sd_configs:
       - role: pod
@@ -161,7 +155,6 @@ data:
           summary: "Redis is down"
           description: "Redis cache has been unreachable for 1 minute"
 ---
-# Prometheus Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -269,7 +262,6 @@ spec:
     targetPort: 9090
   type: ClusterIP
 ---
-# Alertmanager
 apiVersion: v1
 kind: ConfigMap
 metadata:

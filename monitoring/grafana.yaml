@@ -139,7 +139,6 @@ spec:
             port:
               number: 3000
 ---
-# Node Exporter for hardware metrics
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -197,7 +196,6 @@ spec:
   - port: 9100
     targetPort: 9100
 ---
-# cAdvisor for container metrics
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
