@@ -133,16 +133,17 @@ pipeline {
         
         stage('🐳 Build Docker Image') {
             steps {
-                script {
-                    echo "🐳 Building Docker image..."
-                    sh '''
-                        docker build -t ${FULL_IMAGE} .
-                        docker tag ${FULL_IMAGE} ${LATEST_IMAGE}
-                        echo "✅ Docker image built: ${FULL_IMAGE}"
-                    '''
+                        script {
+                            echo "🐳 Building Docker image..."
+                            sh '''
+                                echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
+                                docker build -t ${FULL_IMAGE} .
+                                docker tag ${FULL_IMAGE} ${LATEST_IMAGE}
+                                echo "✅ Docker image built: ${FULL_IMAGE}"
+                            '''
+                        }
+                    }
                 }
-            }
-        }
         
         stage('🔍 Docker Image Security Scan') {
             steps {
