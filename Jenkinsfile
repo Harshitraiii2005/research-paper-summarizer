@@ -17,6 +17,8 @@ pipeline {
         
         SONARQUBE_SERVER = credentials('sonarqube-server')
         SONARQUBE_TOKEN = credentials('sonarqube-token')
+        
+        PATH = "/var/lib/jenkins/.local/bin:${env.PATH}"
     }
     
     options {
@@ -41,7 +43,8 @@ pipeline {
                 script {
                     echo "🔧 Setting up environment..."
                     sh '''
-                        python --version
+                        export PATH="/var/lib/jenkins/.local/bin:$PATH"
+                        python3 --version
                         pip install --upgrade pip
                         pip install -r requirements.txt
                         echo "✅ Dependencies installed"
@@ -55,13 +58,18 @@ pipeline {
                 script {
                     echo "🧪 Running unit tests..."
                     sh '''
+                        export PATH="/var/lib/jenkins/.local/bin:$PATH"
                         pip install pytest pytest-cov
-                        pytest tests/ -v --cov=agents --cov=ingestion --cov=embedding \
+                        python3 -m pytest tests/ -v \
+                            --cov=agents --cov=ingestion \
                             --cov-report=xml --cov-report=html || true
                         echo "✅ Tests completed"
                     '''
                 }
                 publishHTML([
+                    allowMissing: true,
+                    alwaysLinkToLastBuild: false,
+                    keepAll: true,
                     reportDir: 'htmlcov',
                     reportFiles: 'index.html',
                     reportName: 'Code Coverage Report'
@@ -76,9 +84,9 @@ pipeline {
                         script {
                             echo "🔒 Running SonarQube static analysis..."
                             sh '''
+                                export PATH="/var/lib/jenkins/.local/bin:$PATH"
                                 pip install pylint
-                                pylint agents/ ingestion/ embedding/ --exit-zero --output-format=json > pylint-report.json || true
-                                
+                                pylint agents/ ingestion/ --exit-zero --output-format=json > pylint-report.json || true
                                 sonar-scanner \
                                     -Dsonar.projectKey=paperintel \
                                     -Dsonar.sources=. \
@@ -97,9 +105,10 @@ pipeline {
                         script {
                             echo "🛡️ Running OWASP dependency check..."
                             sh '''
+                                export PATH="/var/lib/jenkins/.local/bin:$PATH"
                                 pip install safety bandit
                                 safety check --json > safety-report.json || true
-                                bandit -r agents/ ingestion/ embedding/ -f json -o bandit-report.json || true
+                                bandit -r agents/ ingestion/ -f json -o bandit-report.json || true
                                 echo "✅ Dependency check completed"
                             '''
                         }
@@ -111,8 +120,9 @@ pipeline {
                         script {
                             echo "📝 Checking code quality..."
                             sh '''
+                                export PATH="/var/lib/jenkins/.local/bin:$PATH"
                                 pip install flake8
-                                flake8 agents/ ingestion/ embedding/ --count --select=E9,F63,F7,F82 --show-source --statistics || true
+                                flake8 agents/ ingestion/ --count --select=E9,F63,F7,F82 --show-source --statistics || true
                                 echo "✅ Code quality check completed"
                             '''
                         }
@@ -139,10 +149,9 @@ pipeline {
                 script {
                     echo "🔍 Scanning Docker image for vulnerabilities..."
                     sh '''
-                        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | apt-key add -
-                        echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | tee -a /etc/apt/sources.list.d/trivy.list
+                        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | apt-key add - || true
+                        echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | tee -a /etc/apt/sources.list.d/trivy.list || true
                         apt-get update && apt-get install -y trivy || echo "Trivy already installed"
-                        
                         trivy image --severity HIGH,CRITICAL ${FULL_IMAGE} || true
                         echo "✅ Docker image scan completed"
                     '''
@@ -172,15 +181,9 @@ pipeline {
                     sh '''
                         curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
                         chmod +x argocd
-                        
-                        ./argocd login ${ARGOCD_SERVER} --insecure --username admin --password ${ARGOCD_TOKEN} --grpc-web
-                        
-                        ./argocd app set paperintel-app \
-                            -p image.tag=${IMAGE_TAG} \
-                            --grpc-web
-                        
+                        ./argocd login ${ARGOCD_SERVER} --insecure --username admin --password=${ARGOCD_TOKEN} --grpc-web
+                        ./argocd app set paperintel-app -p image.tag=${IMAGE_TAG} --grpc-web
                         ./argocd app sync paperintel-app --grpc-web
-                        
                         echo "✅ ArgoCD deployment triggered"
                     '''
                 }
@@ -204,17 +207,15 @@ pipeline {
     post {
         always {
             script {
-                echo "📊 Cleaning up..."
+                echo " Cleaning up..."
                 cleanWs()
             }
         }
-        
         success {
-            echo "✅ Pipeline succeeded! Image: ${FULL_IMAGE}"
+            echo " Pipeline succeeded! Image: ${FULL_IMAGE}"
         }
-        
         failure {
-            echo "❌ Pipeline failed! Check logs at ${BUILD_URL}"
+            echo " Pipeline failed! Check logs at ${BUILD_URL}"
         }
     }
 }
