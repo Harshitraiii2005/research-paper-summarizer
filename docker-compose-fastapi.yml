@@ -1,73 +1,49 @@
 version: '3.8'
 
 services:
-  # PostgreSQL (Neon can be external, this is for development)
-  postgres:
-    image: postgres:15-alpine
-    container_name: paperintel-db
-    environment:
-      POSTGRES_USER: paperintel
-      POSTGRES_PASSWORD: paperintel_dev_password
-      POSTGRES_DB: paperintel
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - paperintel-network
-
-  # Redis for caching
-  redis:
-    image: redis:7-alpine
-    container_name: paperintel-redis
-    command: redis-server --appendonly yes
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - paperintel-network
-
-  # FastAPI application
-  fastapi:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: paperintel-api
-    environment:
-      DATABASE_URL: postgresql://paperintel:paperintel_dev_password@postgres:5432/paperintel
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      GROQ_API_KEY: ${GROQ_API_KEY}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      S3_BUCKET: ${S3_BUCKET}
-      SECRET_KEY: ${SECRET_KEY:-your-super-secret-key-change-in-production}
-    ports:
-      - "8000:8000"
-    depends_on:
-      - postgres
-      - redis
-    volumes:
-      - .:/app
-    networks:
-      - paperintel-network
-    command: uvicorn main_fastapi:app --host 0.0.0.0 --port 8000 --reload
-
-  # GROBID for PDF parsing (optional)
   grobid:
     image: grobid/grobid:0.8.0
-    container_name: paperintel-grobid
+    container_name: grobid-service
     ports:
       - "8070:8070"
     networks:
       - paperintel-network
-    environment:
-      - JAVA_OPTS=-Xmx4g
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8070/api/isalive"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-volumes:
-  postgres_data:
-  redis_data:
+  redis:
+    image: redis:7-alpine
+    container_name: redis-service
+    ports:
+      - "6380:6379"
+    networks:
+      - paperintel-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  paperintel-api:
+    image: harshitrai20/paperintel-api:${IMAGE_TAG:-latest}
+    container_name: paperintel-api
+    ports:
+      - "8001:8001"
+    environment:
+      - GROBID_URL=http://grobid:8070
+      - REDIS_URL=redis://redis:6379
+    env_file:
+      - .env
+    depends_on:
+      grobid:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - paperintel-network
 
 networks:
   paperintel-network:

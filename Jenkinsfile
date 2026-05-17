@@ -2,7 +2,6 @@ pipeline {
     agent any
     
     environment {
-        // Docker Hub credentials (store in Jenkins credentials)
         DOCKER_REGISTRY = 'docker.io'
         DOCKER_USERNAME = credentials('docker-username')
         DOCKER_PASSWORD = credentials('docker-password')
@@ -11,19 +10,13 @@ pipeline {
         FULL_IMAGE = "${IMAGE_NAME}:${IMAGE_TAG}"
         LATEST_IMAGE = "${IMAGE_NAME}:latest"
         
-        // Kubernetes & ArgoCD
         KUBECONFIG = '/var/run/secrets/kubernetes.io/serviceaccount/kubeconfig'
         ARGOCD_SERVER = credentials('argocd-server')
         ARGOCD_TOKEN = credentials('argocd-token')
         K8S_NAMESPACE = 'paperintel'
         
-        // SonarQube
         SONARQUBE_SERVER = credentials('sonarqube-server')
         SONARQUBE_TOKEN = credentials('sonarqube-token')
-        
-        // Slack notifications
-        SLACK_CHANNEL = credentials('slack-channel')
-        SLACK_WEBHOOK = credentials('slack-webhook')
     }
     
     options {
@@ -86,7 +79,6 @@ pipeline {
                                 pip install pylint
                                 pylint agents/ ingestion/ embedding/ --exit-zero --output-format=json > pylint-report.json || true
                                 
-                                # Run SonarQube Scanner
                                 sonar-scanner \
                                     -Dsonar.projectKey=paperintel \
                                     -Dsonar.sources=. \
@@ -147,12 +139,10 @@ pipeline {
                 script {
                     echo "🔍 Scanning Docker image for vulnerabilities..."
                     sh '''
-                        # Install Trivy
                         wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | apt-key add -
                         echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | tee -a /etc/apt/sources.list.d/trivy.list
                         apt-get update && apt-get install -y trivy || echo "Trivy already installed"
                         
-                        # Scan image
                         trivy image --severity HIGH,CRITICAL ${FULL_IMAGE} || true
                         echo "✅ Docker image scan completed"
                     '''
@@ -180,19 +170,15 @@ pipeline {
                 script {
                     echo "🚀 Triggering ArgoCD deployment..."
                     sh '''
-                        # Install ArgoCD CLI
                         curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
                         chmod +x argocd
                         
-                        # Login to ArgoCD
-                        ./argocd login ${ARGOCD_SERVER} --insecure --username admin --password ${ARGOCD_TOKEN}
+                        ./argocd login ${ARGOCD_SERVER} --insecure --username admin --password ${ARGOCD_TOKEN} --grpc-web
                         
-                        # Update the application image
                         ./argocd app set paperintel-app \
                             -p image.tag=${IMAGE_TAG} \
                             --grpc-web
                         
-                        # Sync the application
                         ./argocd app sync paperintel-app --grpc-web
                         
                         echo "✅ ArgoCD deployment triggered"
@@ -219,53 +205,16 @@ pipeline {
         always {
             script {
                 echo "📊 Cleaning up..."
-                // Clean workspace
                 cleanWs()
             }
         }
         
         success {
-            script {
-                echo "✅ Pipeline succeeded!"
-                // Slack notification
-                sh '''
-                    curl -X POST ${SLACK_WEBHOOK} \
-                        -H 'Content-Type: application/json' \
-                        -d "{
-                            \"channel\": \"${SLACK_CHANNEL}\",
-                            \"username\": \"Jenkins CI/CD\",
-                            \"text\": \"✅ Build #${BUILD_NUMBER} Successful\",
-                            \"attachments\": [{
-                                \"color\": \"good\",
-                                \"fields\": [
-                                    {\"title\": \"Image\", \"value\": \"${FULL_IMAGE}\", \"short\": true},
-                                    {\"title\": \"Branch\", \"value\": \"${GIT_BRANCH}\", \"short\": true}
-                                ]
-                            }]
-                        }" || true
-                '''
-            }
+            echo "✅ Pipeline succeeded! Image: ${FULL_IMAGE}"
         }
         
         failure {
-            script {
-                echo "❌ Pipeline failed!"
-                sh '''
-                    curl -X POST ${SLACK_WEBHOOK} \
-                        -H 'Content-Type: application/json' \
-                        -d "{
-                            \"channel\": \"${SLACK_CHANNEL}\",
-                            \"username\": \"Jenkins CI/CD\",
-                            \"text\": \"❌ Build #${BUILD_NUMBER} Failed\",
-                            \"attachments\": [{
-                                \"color\": \"danger\",
-                                \"fields\": [
-                                    {\"title\": \"Error\", \"value\": \"Check logs at ${BUILD_URL}\", \"short\": false}
-                                ]
-                            }]
-                        }" || true
-                '''
-            }
+            echo "❌ Pipeline failed! Check logs at ${BUILD_URL}"
         }
     }
 }
