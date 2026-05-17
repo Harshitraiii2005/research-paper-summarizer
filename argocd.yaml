@@ -1,0 +1,59 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: paperintel
+  namespace: argocd
+  labels:
+    app: paperintel
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: paperintel=harshitrai20/paperintel
+    argocd-image-updater.argoproj.io/paperintel.update-strategy: latest
+    argocd-image-updater.argoproj.io/paperintel.allow-tags: regexp:^[0-9]+$
+    argocd-image-updater.argoproj.io/write-back-method: git
+    argocd-image-updater.argoproj.io/git-branch: main
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/harshitrai20/paperintel
+    targetRevision: HEAD
+    path: k8s
+    directory:
+      recurse: false
+      include: "*.yaml"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: paperintel
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - RespectIgnoreDifferences=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      name: paperintel
+      namespace: paperintel
+      jsonPointers:
+        - /spec/replicas
+        - /spec/template/spec/containers/0/image
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+      namespace: paperintel
+      jsonPointers:
+        - /spec/minReplicas
+        - /spec/maxReplicas
+  revisionHistoryLimit: 10
