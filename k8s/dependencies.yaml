@@ -1,111 +1,5 @@
 ---
-# PostgreSQL
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: postgres-pvc
-  namespace: paperintel
-spec:
-  accessModes:
-    - ReadWriteOnce
-  storageClassName: local
-  resources:
-    requests:
-      storage: 20Gi
----
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: postgres
-  namespace: paperintel
-spec:
-  serviceName: postgres
-  replicas: 1
-  selector:
-    matchLabels:
-      app: postgres
-  template:
-    metadata:
-      labels:
-        app: postgres
-    spec:
-      containers:
-      - name: postgres
-        image: postgres:15-alpine
-        ports:
-        - containerPort: 5432
-        env:
-        - name: POSTGRES_DB
-          value: "paperintel"
-        - name: POSTGRES_USER
-          valueFrom:
-            secretKeyRef:
-              name: postgres-secret
-              key: user
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: postgres-secret
-              key: password
-        - name: PGDATA
-          value: /var/lib/postgresql/data/pgdata
-        resources:
-          requests:
-            cpu: 500m
-            memory: 1Gi
-          limits:
-            cpu: 1000m
-            memory: 2Gi
-        volumeMounts:
-        - name: postgres-data
-          mountPath: /var/lib/postgresql/data
-        livenessProbe:
-          exec:
-            command:
-            - /bin/sh
-            - -c
-            - pg_isready -U postgres
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          exec:
-            command:
-            - /bin/sh
-            - -c
-            - pg_isready -U postgres
-          initialDelaySeconds: 5
-          periodSeconds: 5
-      volumes:
-      - name: postgres-data
-        persistentVolumeClaim:
-          claimName: postgres-pvc
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: postgres
-  namespace: paperintel
-  labels:
-    app: postgres
-spec:
-  clusterIP: None
-  selector:
-    app: postgres
-  ports:
-  - port: 5432
-    targetPort: 5432
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: postgres-secret
-  namespace: paperintel
-type: Opaque
-stringData:
-  user: "paperintel"
-  password: "paperintel-secure-password-change-me"
----
-# Redis
+# Redis PVC
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
@@ -114,11 +8,12 @@ metadata:
 spec:
   accessModes:
     - ReadWriteOnce
-  storageClassName: local
+  storageClassName: standard   # minikube default; change to 'local' for bare metal
   resources:
     requests:
       storage: 10Gi
 ---
+# Redis Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -142,7 +37,7 @@ spec:
         - "--appendonly"
         - "yes"
         - "--maxmemory"
-        - "1gb"
+        - "512mb"
         - "--maxmemory-policy"
         - "allkeys-lru"
         ports:
@@ -150,25 +45,21 @@ spec:
         resources:
           requests:
             cpu: 200m
-            memory: 512Mi
+            memory: 256Mi
           limits:
             cpu: 500m
-            memory: 1Gi
+            memory: 512Mi
         volumeMounts:
         - name: redis-data
           mountPath: /data
         livenessProbe:
           exec:
-            command:
-            - redis-cli
-            - ping
+            command: ["redis-cli", "ping"]
           initialDelaySeconds: 10
           periodSeconds: 5
         readinessProbe:
           exec:
-            command:
-            - redis-cli
-            - ping
+            command: ["redis-cli", "ping"]
           initialDelaySeconds: 5
           periodSeconds: 5
       volumes:
@@ -176,6 +67,7 @@ spec:
         persistentVolumeClaim:
           claimName: redis-pvc
 ---
+# Redis Service
 apiVersion: v1
 kind: Service
 metadata:
@@ -184,9 +76,68 @@ metadata:
   labels:
     app: redis
 spec:
-  clusterIP: None
   selector:
     app: redis
   ports:
   - port: 6379
     targetPort: 6379
+---
+# Grobid Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grobid
+  namespace: paperintel
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grobid
+  template:
+    metadata:
+      labels:
+        app: grobid
+    spec:
+      containers:
+      - name: grobid
+        image: grobid/grobid:0.8.0
+        ports:
+        - containerPort: 8070
+        resources:
+          requests:
+            cpu: 500m
+            memory: 2Gi
+          limits:
+            cpu: 2000m
+            memory: 4Gi
+        livenessProbe:
+          httpGet:
+            path: /api/isalive
+            port: 8070
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 5
+        readinessProbe:
+          httpGet:
+            path: /api/isalive
+            port: 8070
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+---
+# Grobid Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: grobid
+  namespace: paperintel
+  labels:
+    app: grobid
+spec:
+  selector:
+    app: grobid
+  ports:
+  - port: 8070
+    targetPort: 8070
