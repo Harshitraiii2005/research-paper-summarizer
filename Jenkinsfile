@@ -132,53 +132,57 @@ pipeline {
         }
         
         stage('🐳 Build Docker Image') {
-            steps {
-                script {
-                    echo "🐳 Building Docker image..."
-                    withCredentials([
-                        string(credentialsId: 'docker-username', variable: 'DUSER'),
-                        string(credentialsId: 'docker-password', variable: 'DPASS')
-                    ]) {
-                        sh '''
-                            echo "$DPASS" | docker login docker.io -u "$DUSER" --password-stdin
-                            docker build -t $DUSER/paperintel:${BUILD_NUMBER} .
-                            docker tag $DUSER/paperintel:${BUILD_NUMBER} $DUSER/paperintel:latest
-                            echo "✅ Docker image built"
-                        '''
-                    }
-                }
+    steps {
+        script {
+            echo "🐳 Building Docker image..."
+            withCredentials([usernamePassword(
+                credentialsId: 'dockerhub-credentials',
+                usernameVariable: 'DUSER',
+                passwordVariable: 'DPASS'
+            )]) {
+                sh '''
+                    echo "$DPASS" | docker login -u "$DUSER" --password-stdin
+                    docker build -t "$DUSER/paperintel:${BUILD_NUMBER}" .
+                    docker tag "$DUSER/paperintel:${BUILD_NUMBER}" "$DUSER/paperintel:latest"
+                    echo "✅ Docker image built: $DUSER/paperintel:${BUILD_NUMBER}"
+                '''
             }
+        }
+    }
 }
-        
-        stage('🔍 Docker Image Security Scan') {
-            steps {
-                script {
-                    echo "🔍 Scanning Docker image for vulnerabilities..."
-                    sh '''
-                        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | apt-key add - || true
-                        echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | tee -a /etc/apt/sources.list.d/trivy.list || true
-                        apt-get update && apt-get install -y trivy || echo "Trivy already installed"
-                        trivy image --severity HIGH,CRITICAL ${FULL_IMAGE} || true
-                        echo "✅ Docker image scan completed"
-                    '''
-                }
+
+stage('🔍 Docker Image Security Scan') {
+    steps {
+        script {
+            echo "🔍 Scanning Docker image for vulnerabilities..."
+            sh '''
+                trivy image --severity HIGH,CRITICAL harshitrai20/paperintel:${BUILD_NUMBER} || true
+                echo "✅ Docker image scan completed"
+            '''
+        }
+    }
+}
+
+stage('📤 Push to Docker Hub') {
+    steps {
+        script {
+            echo "📤 Pushing image to Docker Hub..."
+            withCredentials([usernamePassword(
+                credentialsId: 'dockerhub-credentials',
+                usernameVariable: 'DUSER',
+                passwordVariable: 'DPASS'
+            )]) {
+                sh '''
+                    echo "$DPASS" | docker login -u "$DUSER" --password-stdin
+                    docker push "$DUSER/paperintel:${BUILD_NUMBER}"
+                    docker push "$DUSER/paperintel:latest"
+                    docker logout
+                    echo "✅ Image pushed to Docker Hub"
+                '''
             }
         }
-        
-        stage('📤 Push to Docker Hub') {
-            steps {
-                script {
-                    echo "📤 Pushing image to Docker Hub..."
-                    sh '''
-                        echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin
-                        docker push ${FULL_IMAGE}
-                        docker push ${LATEST_IMAGE}
-                        docker logout
-                        echo "✅ Image pushed to Docker Hub"
-                    '''
-                }
-            }
-        }
+    }
+}
         
         stage('🚀 Update ArgoCD') {
             steps {
