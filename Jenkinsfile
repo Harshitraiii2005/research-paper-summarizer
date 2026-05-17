@@ -2,23 +2,12 @@ pipeline {
     agent any
     
     environment {
-        DOCKER_REGISTRY = 'docker.io'
-        DOCKER_USERNAME = credentials('docker-username')
-        DOCKER_PASSWORD = credentials('docker-password')
-        IMAGE_NAME = "${DOCKER_USERNAME}/paperintel"
-        IMAGE_TAG = "${BUILD_NUMBER}-${GIT_COMMIT.take(7)}"
-        FULL_IMAGE = "${IMAGE_NAME}:${IMAGE_TAG}"
-        LATEST_IMAGE = "${IMAGE_NAME}:latest"
-        
-        KUBECONFIG = '/var/run/secrets/kubernetes.io/serviceaccount/kubeconfig'
-        ARGOCD_SERVER = credentials('argocd-server')
-        ARGOCD_TOKEN = credentials('argocd-token')
-        K8S_NAMESPACE = 'paperintel'
-        
-        SONARQUBE_SERVER = credentials('sonarqube-server')
-        SONARQUBE_TOKEN = credentials('sonarqube-token')
-        
         PATH = "/var/lib/jenkins/.local/bin:${env.PATH}"
+        K8S_NAMESPACE = 'paperintel'
+        SONARQUBE_SERVER = credentials('sonarqube-server')
+        SONARQUBE_TOKEN  = credentials('sonarqube-token')
+        ARGOCD_SERVER    = credentials('argocd-server')
+        ARGOCD_TOKEN     = credentials('argocd-token')
     }
     
     options {
@@ -28,6 +17,7 @@ pipeline {
     }
     
     stages {
+
         stage('🔍 Checkout') {
             steps {
                 script {
@@ -66,14 +56,7 @@ pipeline {
                         echo "✅ Tests completed"
                     '''
                 }
-                publishHTML([
-                    allowMissing: true,
-                    alwaysLinkToLastBuild: false,
-                    keepAll: true,
-                    reportDir: 'htmlcov',
-                    reportFiles: 'index.html',
-                    reportName: 'Code Coverage Report'
-                ])
+                archiveArtifacts artifacts: 'coverage.xml', allowEmptyArchive: true
             }
         }
         
@@ -132,57 +115,62 @@ pipeline {
         }
         
         stage('🐳 Build Docker Image') {
-    steps {
-        script {
-            echo "🐳 Building Docker image..."
-            withCredentials([usernamePassword(
-                credentialsId: 'dockerhub-credentials',
-                usernameVariable: 'DUSER',
-                passwordVariable: 'DPASS'
-            )]) {
-                sh '''
-                    echo "$DPASS" | docker login -u "$DUSER" --password-stdin
-                    docker build -t "$DUSER/paperintel:${BUILD_NUMBER}" .
-                    docker tag "$DUSER/paperintel:${BUILD_NUMBER}" "$DUSER/paperintel:latest"
-                    echo "✅ Docker image built: $DUSER/paperintel:${BUILD_NUMBER}"
-                '''
+            steps {
+                script {
+                    echo "🐳 Building Docker image..."
+                    withCredentials([usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DUSER',
+                        passwordVariable: 'DPASS'
+                    )]) {
+                        sh '''
+                            echo "$DPASS" | docker login -u "$DUSER" --password-stdin
+                            docker build -t "$DUSER/paperintel:${BUILD_NUMBER}" .
+                            docker tag "$DUSER/paperintel:${BUILD_NUMBER}" "$DUSER/paperintel:latest"
+                            echo "✅ Docker image built: $DUSER/paperintel:${BUILD_NUMBER}"
+                        '''
+                    }
+                }
             }
         }
-    }
-}
-
-stage('🔍 Docker Image Security Scan') {
-    steps {
-        script {
-            echo "🔍 Scanning Docker image for vulnerabilities..."
-            sh '''
-                trivy image --severity HIGH,CRITICAL harshitrai20/paperintel:${BUILD_NUMBER} || true
-                echo "✅ Docker image scan completed"
-            '''
-        }
-    }
-}
-
-stage('📤 Push to Docker Hub') {
-    steps {
-        script {
-            echo "📤 Pushing image to Docker Hub..."
-            withCredentials([usernamePassword(
-                credentialsId: 'dockerhub-credentials',
-                usernameVariable: 'DUSER',
-                passwordVariable: 'DPASS'
-            )]) {
-                sh '''
-                    echo "$DPASS" | docker login -u "$DUSER" --password-stdin
-                    docker push "$DUSER/paperintel:${BUILD_NUMBER}"
-                    docker push "$DUSER/paperintel:latest"
-                    docker logout
-                    echo "✅ Image pushed to Docker Hub"
-                '''
+        
+        stage('🔍 Docker Image Security Scan') {
+            steps {
+                script {
+                    echo "🔍 Scanning Docker image for vulnerabilities..."
+                    sh '''
+                        which trivy || (
+                            wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | apt-key add - &&
+                            echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | tee /etc/apt/sources.list.d/trivy.list &&
+                            apt-get update -qq && apt-get install -y trivy
+                        ) || true
+                        trivy image --severity HIGH,CRITICAL harshitrai20/paperintel:${BUILD_NUMBER} || true
+                        echo "✅ Docker image scan completed"
+                    '''
+                }
             }
         }
-    }
-}
+        
+        stage('📤 Push to Docker Hub') {
+            steps {
+                script {
+                    echo "📤 Pushing image to Docker Hub..."
+                    withCredentials([usernamePassword(
+                        credentialsId: 'dockerhub-credentials',
+                        usernameVariable: 'DUSER',
+                        passwordVariable: 'DPASS'
+                    )]) {
+                        sh '''
+                            echo "$DPASS" | docker login -u "$DUSER" --password-stdin
+                            docker push "$DUSER/paperintel:${BUILD_NUMBER}"
+                            docker push "$DUSER/paperintel:latest"
+                            docker logout
+                            echo "✅ Image pushed to Docker Hub"
+                        '''
+                    }
+                }
+            }
+        }
         
         stage('🚀 Update ArgoCD') {
             steps {
@@ -192,7 +180,7 @@ stage('📤 Push to Docker Hub') {
                         curl -sSL -o argocd https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
                         chmod +x argocd
                         ./argocd login ${ARGOCD_SERVER} --insecure --username admin --password=${ARGOCD_TOKEN} --grpc-web
-                        ./argocd app set paperintel-app -p image.tag=${IMAGE_TAG} --grpc-web
+                        ./argocd app set paperintel-app -p image.tag=${BUILD_NUMBER} --grpc-web
                         ./argocd app sync paperintel-app --grpc-web
                         echo "✅ ArgoCD deployment triggered"
                     '''
@@ -217,15 +205,15 @@ stage('📤 Push to Docker Hub') {
     post {
         always {
             script {
-                echo " Cleaning up..."
+                echo "📊 Cleaning up..."
                 cleanWs()
             }
         }
         success {
-            echo " Pipeline succeeded! Image: ${FULL_IMAGE}"
+            echo "✅ Pipeline #${BUILD_NUMBER} succeeded!"
         }
         failure {
-            echo " Pipeline failed! Check logs at ${BUILD_URL}"
+            echo "❌ Pipeline #${BUILD_NUMBER} failed! Check logs at ${BUILD_URL}"
         }
     }
 }
